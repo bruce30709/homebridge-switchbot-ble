@@ -1,4 +1,3 @@
-const SwitchbotAccessory = require('./switchbot-accessory');
 const path = require('path');
 const { exec } = require('child_process');
 const fs = require('fs');
@@ -28,11 +27,8 @@ function logToFile(message, level = 'INFO') {
 }
 
 module.exports = (api) => {
-    // 註冊為配件插件
-    api.registerAccessory('SwitchbotBLE', SwitchbotAccessory);
-
-    // 註冊為平台插件，用於Child Bridge支持
-    api.registerPlatform('SwitchbotBLE', SwitchbotPlatform);
+    // 仅注册为动态平台插件
+    api.registerPlatform('homebridge-switchbot-ble', 'SwitchbotBLE', SwitchbotPlatform);
 };
 
 class SwitchbotPlatform {
@@ -43,7 +39,7 @@ class SwitchbotPlatform {
         this.accessories = [];
         this.PLUGIN_NAME = 'homebridge-switchbot-ble';
 
-        // 確保設置了配件
+        // 确保设置了配件
         this.devices = this.config.devices || [];
 
         this.log.info('SwitchBot BLE Platform 初始化');
@@ -51,82 +47,124 @@ class SwitchbotPlatform {
         this.log.debug(`已設置 ${this.devices.length} 個 SwitchBot 設備`);
         logToFile(`已設置 ${this.devices.length} 個 SwitchBot 設備`, 'DEBUG');
 
-        // 當 Homebridge 完全加載後註冊設備
+        // 当 Homebridge 完全加载后发现设备
         this.api.on('didFinishLaunching', () => {
-            this.log.debug('Finished launching, configuring accessories...');
-            logToFile('Finished launching, configuring accessories...', 'PLATFORM');
-            this.configureAccessories();
+            this.log.debug('Finished launching, discovering accessories...');
+            logToFile('Finished launching, discovering accessories...', 'PLATFORM');
+            this.discoverDevices();
         });
     }
 
-    // 配置所有配件
-    configureAccessories() {
-        this.log.info('Configuring accessories...');
-        logToFile('Configuring accessories...', 'PLATFORM');
+    // 配置从缓存中恢复的配件
+    configureAccessory(accessory) {
+        this.log.debug(`从缓存中恢复配件: ${accessory.displayName}`);
+        logToFile(`从缓存中恢复配件: ${accessory.displayName}`, 'CACHE');
 
-        // 檢查配件列表
+        // 为恢复的配件设置控制器
+        const deviceInfo = accessory.context.device;
+        if (deviceInfo) {
+            this.configureController(accessory);
+            // 将配件添加到追踪列表
+            this.accessories.push(accessory);
+        }
+    }
+
+    // 为配件设置控制器
+    configureController(accessory) {
+        const deviceInfo = accessory.context.device;
+        if (!deviceInfo) {
+            this.log.warn(`配件 ${accessory.displayName} 没有设备信息`);
+            return;
+        }
+
+        // 创建并设置控制器
+        new SwitchbotController(this.log, deviceInfo, this.api, accessory);
+    }
+
+    // 发现并注册设备
+    discoverDevices() {
+        this.log.info('Discovering accessories...');
+        logToFile('Discovering accessories...', 'PLATFORM');
+
+        // 检查配件列表
         if (this.devices.length === 0) {
             this.log.warn('No devices configured. Check your config.json');
             logToFile('No devices configured. Check your config.json', 'WARNING');
             return;
         }
 
-        // 存儲需要發布的配件
-        const externalAccessories = [];
+        // 用于跟踪将要保留的配件
+        const foundAccessories = [];
 
-        // 為每個設備創建配件
+        // 为每个设备创建或更新配件
         for (const deviceConfig of this.devices) {
-            // 確保每個設備有唯一的名稱和設備ID
+            // 确保每个设备有唯一的名称和设备ID
             if (!deviceConfig.name || !deviceConfig.deviceId) {
-                this.log.warn('設備配置缺少必要字段，跳過:', JSON.stringify(deviceConfig));
-                logToFile(`設備配置缺少必要字段，跳過: ${JSON.stringify(deviceConfig)}`, 'WARNING');
+                this.log.warn('设备配置缺少必要字段，跳过:', JSON.stringify(deviceConfig));
+                logToFile(`设备配置缺少必要字段，跳过: ${JSON.stringify(deviceConfig)}`, 'WARNING');
                 continue;
             }
 
-            this.log.info(`添加設備: ${deviceConfig.name} (${deviceConfig.deviceId})`);
-            logToFile(`添加設備: ${deviceConfig.name} (${deviceConfig.deviceId})`, 'DEVICE');
-
-            // 創建唯一ID
+            // 创建唯一ID
             const uuid = this.api.hap.uuid.generate(deviceConfig.deviceId);
 
-            // 創建平台配件
-            const platformAccessory = new this.api.platformAccessory(deviceConfig.name, uuid);
+            // 检查是否已有此配件
+            let accessory = this.accessories.find(a => a.UUID === uuid);
 
-            // 設置配件類型和數據
-            platformAccessory.category = this.api.hap.Categories.SWITCH;
-            platformAccessory.context.device = deviceConfig;
+            if (accessory) {
+                // 已有配件，更新信息
+                this.log.info(`更新现有设备: ${deviceConfig.name} (${deviceConfig.deviceId})`);
+                logToFile(`更新现有设备: ${deviceConfig.name} (${deviceConfig.deviceId})`, 'UPDATE');
 
-            // 用我們的 accessory 控制器配置平台配件
-            const switchbotController = new SwitchbotController(this.log, deviceConfig, this.api, platformAccessory);
+                // 更新配件上下文
+                accessory.context.device = deviceConfig;
+                accessory.displayName = deviceConfig.name;
 
-            // 添加到發布列表
-            externalAccessories.push(platformAccessory);
-            this.log.debug(`添加設備 ${deviceConfig.name} 到發布列表`);
-            logToFile(`添加設備 ${deviceConfig.name} 到發布列表`, 'DEBUG');
+                // 重新配置控制器
+                this.configureController(accessory);
+            } else {
+                // 创建新配件
+                this.log.info(`添加新设备: ${deviceConfig.name} (${deviceConfig.deviceId})`);
+                logToFile(`添加新设备: ${deviceConfig.name} (${deviceConfig.deviceId})`, 'ADD');
+
+                // 创建平台配件
+                accessory = new this.api.platformAccessory(deviceConfig.name, uuid);
+
+                // 设置配件类型和数据
+                accessory.category = this.api.hap.Categories.SWITCH;
+                accessory.context.device = deviceConfig;
+
+                // 配置控制器
+                this.configureController(accessory);
+
+                // 注册新配件
+                this.api.registerPlatformAccessories(this.PLUGIN_NAME, 'SwitchbotBLE', [accessory]);
+            }
+
+            // 添加到已找到的配件列表
+            foundAccessories.push(accessory);
         }
 
-        // 發布外部配件
-        if (externalAccessories.length > 0) {
-            this.log.info(`將發布 ${externalAccessories.length} 個外部配件`);
-            logToFile(`將發布 ${externalAccessories.length} 個外部配件`, 'PLATFORM');
-            this.api.publishExternalAccessories(this.PLUGIN_NAME, externalAccessories);
-            this.log.info(`已發布 ${externalAccessories.length} 個外部配件`);
-            logToFile(`已發布 ${externalAccessories.length} 個外部配件`, 'PLATFORM');
+        // 处理需要移除的配件
+        const accessoriesToRemove = this.accessories.filter(existingAccessory =>
+            !foundAccessories.some(a => a.UUID === existingAccessory.UUID)
+        );
+
+        if (accessoriesToRemove.length > 0) {
+            this.log.info(`移除 ${accessoriesToRemove.length} 个不再使用的配件`);
+            logToFile(`移除 ${accessoriesToRemove.length} 个不再使用的配件`, 'REMOVE');
+            this.api.unregisterPlatformAccessories(this.PLUGIN_NAME, 'SwitchbotBLE', accessoriesToRemove);
         }
 
-        this.log.info(`已成功配置 ${externalAccessories.length} 個設備`);
-        logToFile(`已成功配置 ${externalAccessories.length} 個設備`, 'PLATFORM');
-    }
+        // 更新追踪的配件列表
+        this.accessories = foundAccessories;
 
-    // 必要的方法（我們只處理外部配件，不支持緩存）
-    configureAccessory(accessory) {
-        this.log.debug(`從緩存中載入配件: ${accessory.displayName}`);
-        logToFile(`從緩存中載入配件: ${accessory.displayName}`, 'CACHE');
-        // 我們不保留緩存的配件，因為我們使用 publishExternalAccessories
+        this.log.info(`已成功发现和配置 ${this.accessories.length} 个设备`);
+        logToFile(`已成功发现和配置 ${this.accessories.length} 个设备`, 'PLATFORM');
     }
 }
 
-// 控制器類，用於配置平台配件
+// 控制器类，用於配置平台配件
 class SwitchbotController {
     constructor(log, config, api, platformAccessory) {
         this.log = log;
@@ -168,15 +206,27 @@ class SwitchbotController {
                 // 返回當前跟踪的狀態
                 return this.currentState;
             })
-            .onSet((value) => {
+            .onSet(async (value) => {
                 this.log.info(`${this.logPrefix}設置開關狀態為 ${value ? 'ON' : 'OFF'}`);
                 logToFile(`${this.logPrefix}設置開關狀態為 ${value ? 'ON' : 'OFF'}`, 'STATE');
 
                 // 更新跟踪的狀態
                 this.currentState = value;
 
-                // 直接執行命令
-                return this.executeCommand(value);
+                try {
+                    // 直接執行命令，但不等待完成
+                    this.executeCommand(value).catch(error => {
+                        this.log.error(`${this.logPrefix}執行命令時發生錯誤: ${error.message}`);
+                        logToFile(`${this.logPrefix}執行命令時發生錯誤: ${error.message}`, 'ERROR');
+                    });
+
+                    // 立即返回，不等待命令执行完成
+                    return;
+                } catch (error) {
+                    this.log.error(`${this.logPrefix}設置開關狀態時發生錯誤: ${error.message}`);
+                    logToFile(`${this.logPrefix}設置開關狀態時發生錯誤: ${error.message}`, 'ERROR');
+                    throw error; // 传递错误给HomeKit
+                }
             });
 
         // 配置信息服務
