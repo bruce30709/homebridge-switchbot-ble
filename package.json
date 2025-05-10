@@ -1,0 +1,54 @@
+{
+  "name": "homebridge-switchbot-ble",
+  "version": "1.0.0",
+  "description": "SwitchBot BLE plugin for Homebridge using direct BLE control",
+  "main": "index.js",
+  "scripts": {
+    "start": "node switchbot-api-server.mjs",
+    "bot": "node bot-cmd.mjs",
+    "find": "node bot-cmd.mjs find",
+    "scan": "node bot-cmd.mjs scan",
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "postinstall": "node install.js",
+    "fix-childbridge": "node install.js",
+    "fix-config": "node fix-config.js",
+    "clean-cache": "clean-homebridge-cache.bat",
+    "verify": "node verify-childbridge.js",
+    "test-childbridge": "node childbridge-test.js",
+    "test-bridge-win": "test-child-bridge.bat",
+    "test-bridge-unix": "bash test-child-bridge.sh"
+  },
+  "engines": {
+    "homebridge": "^1.3.5 || ^1.6.0 || ^2.0.0-beta.0",
+    "node": "^14.0.0 || ^18.20.4 || ^20.7.0 || ^22"
+  },
+  "keywords": [
+    "homebridge-plugin",
+    "switchbot",
+    "ble",
+    "api",
+    "iot",
+    "smart-home",
+    "homebridge-platform"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "node-switchbot": "3.5.0"
+  },
+  "homepage": "https://github.com/bruce30709/homebridge-switchbot-ble#readme",
+  "repository": {
+    "type": "git",
+    "url": "git://github.com/bruce30709/homebridge-switchbot-ble.git"
+  },
+  "bugs": {
+    "url": "https://github.com/bruce30709/homebridge-switchbot-ble/issues"
+  },
+  "funding": [
+    {
+      "type": "kofi",
+      "url": "https://ko-fi.com/yourusername"
+    }
+  ],
+  "preferChildBridge": true
+}
