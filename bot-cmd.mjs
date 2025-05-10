@@ -3,7 +3,7 @@
  * SwitchBot Bot 命令行控制工具
  * 直接使用 switchbot-api-server.mjs 模組來控制 SwitchBot Bot 設備
  */
-import * as SwitchBotAPI from 'test-switchbot';
+import * as SwitchBotAPI from './switchbot-api-server.mjs';
 import { createInterface } from 'readline';
 
 // 檢測是否為API調用模式

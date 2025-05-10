@@ -191,37 +191,80 @@ class SwitchbotController {
     async executeCommand(value) {
         const cmdPath = path.join(__dirname, 'bot-cmd.mjs');
         const cmd = value ? 'on' : 'off';
-        const fullCmd = `node "${cmdPath}" ${cmd} ${this.deviceId}`;
+        const fullCmd = `node \"${cmdPath}\" ${cmd} ${this.deviceId}`;
 
         this.log.info(`${this.logPrefix}執行命令: ${fullCmd}`);
         logToFile(`${this.logPrefix}執行命令: ${fullCmd}`, 'COMMAND');
 
+        // 設置最大重試次數
+        const maxRetries = 3;
+        let retryCount = 0;
+        let lastError = null;
+
         return new Promise((resolve) => {
-            exec(fullCmd, { timeout: 15000 }, (error, stdout, stderr) => {
-                if (stderr) {
-                    this.log.debug(`${this.logPrefix}命令錯誤輸出: ${stderr}`);
-                    logToFile(`${this.logPrefix}命令錯誤輸出: ${stderr}`, 'ERROR');
+            const attemptCommand = () => {
+                // 添加重試計數到日誌
+                const retryPrefix = retryCount > 0 ? `[重試 ${retryCount}/${maxRetries}] ` : '';
+                if (retryCount > 0) {
+                    this.log.info(`${this.logPrefix}${retryPrefix}重新嘗試執行命令: ${fullCmd}`);
+                    logToFile(`${this.logPrefix}${retryPrefix}重新嘗試執行命令: ${fullCmd}`, 'RETRY');
                 }
 
-                if (stdout) {
-                    this.log.debug(`${this.logPrefix}命令標準輸出: ${stdout}`);
-                    logToFile(`${this.logPrefix}命令標準輸出: ${stdout}`, 'DEBUG');
-                }
+                exec(fullCmd, { timeout: 15000 }, (error, stdout, stderr) => {
+                    if (stderr) {
+                        this.log.debug(`${this.logPrefix}${retryPrefix}命令錯誤輸出: ${stderr}`);
+                        logToFile(`${this.logPrefix}${retryPrefix}命令錯誤輸出: ${stderr}`, 'ERROR');
+                    }
 
-                if (error) {
-                    this.log.error(`${this.logPrefix}命令執行錯誤: ${error.message}`);
-                    logToFile(`${this.logPrefix}命令執行錯誤: ${error.message}`, 'ERROR');
-                } else {
-                    this.log.debug(`${this.logPrefix}命令執行成功`);
-                    logToFile(`${this.logPrefix}命令執行成功`, 'SUCCESS');
-                }
+                    if (stdout) {
+                        this.log.debug(`${this.logPrefix}${retryPrefix}命令標準輸出: ${stdout}`);
+                        logToFile(`${this.logPrefix}${retryPrefix}命令標準輸出: ${stdout}`, 'DEBUG');
+                    }
 
-                // 成功後更新狀態
-                this.log.info(`${this.logPrefix}命令完成，當前狀態: ${this.currentState ? 'ON' : 'OFF'}`);
-                logToFile(`${this.logPrefix}命令完成，當前狀態: ${this.currentState ? 'ON' : 'OFF'}`, 'STATE');
+                    if (error) {
+                        lastError = error;
+                        this.log.error(`${this.logPrefix}${retryPrefix}命令執行錯誤: ${error.message}`);
+                        logToFile(`${this.logPrefix}${retryPrefix}命令執行錯誤: ${error.message}`, 'ERROR');
 
-                resolve(this.currentState);
-            });
+                        // 檢查是否為 "deviceCache is not defined" 錯誤並重試
+                        if ((error.message.includes("deviceCache is not defined") ||
+                            error.message.includes("No devices found") ||
+                            error.message.includes("Failed to execute") ||
+                            error.message.includes("Timeout")) &&
+                            retryCount < maxRetries) {
+
+                            retryCount++;
+                            this.log.info(`${this.logPrefix}將在 1 秒後進行第 ${retryCount} 次重試...`);
+                            logToFile(`${this.logPrefix}將在 1 秒後進行第 ${retryCount} 次重試...`, 'RETRY');
+
+                            // 在重試前稍微等待，避免立即重試可能導致的連續失敗
+                            setTimeout(attemptCommand, 1000 * retryCount);
+                            return;
+                        } else {
+                            // 已達最大重試次數或不是可重試的錯誤，但仍視為成功（更新 UI 狀態）
+                            if (retryCount >= maxRetries) {
+                                this.log.warn(`${this.logPrefix}達到最大重試次數 ${maxRetries}，但仍視為命令成功執行`);
+                                logToFile(`${this.logPrefix}達到最大重試次數 ${maxRetries}，但仍視為命令成功執行`, 'WARNING');
+                            } else {
+                                this.log.warn(`${this.logPrefix}錯誤不可重試，但仍視為命令成功執行: ${error.message}`);
+                                logToFile(`${this.logPrefix}錯誤不可重試，但仍視為命令成功執行: ${error.message}`, 'WARNING');
+                            }
+                        }
+                    } else {
+                        this.log.debug(`${this.logPrefix}${retryPrefix}命令執行成功`);
+                        logToFile(`${this.logPrefix}${retryPrefix}命令執行成功`, 'SUCCESS');
+                    }
+
+                    // 成功後更新狀態
+                    this.log.info(`${this.logPrefix}命令完成，當前狀態: ${this.currentState ? 'ON' : 'OFF'}`);
+                    logToFile(`${this.logPrefix}命令完成，當前狀態: ${this.currentState ? 'ON' : 'OFF'}`, 'STATE');
+
+                    resolve(this.currentState);
+                });
+            };
+
+            // 開始第一次嘗試
+            attemptCommand();
         });
     }
 } 
