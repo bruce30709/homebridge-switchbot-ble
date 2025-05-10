@@ -1,0 +1,37 @@
+{
+    "bridge": {
+        "name": "Homebridge",
+        "username": "CC:22:3D:E3:CE:30",
+        "port": 51826,
+        "pin": "031-45-154"
+    },
+    "accessories": [],
+    "platforms": [
+        {
+            "platform": "SwitchbotBLE",
+            "name": "SwitchBot",
+            "debug": true,
+            "devices": [
+                {
+                    "name": "客廳開關",
+                    "deviceId": "aa:bb:cc:dd:ee:ff",
+                    "mode": "press",
+                    "autoOff": true,
+                    "autoOffDelay": 1
+                },
+                {
+                    "name": "臥室開關",
+                    "deviceId": "xx:yy:zz:aa:bb:cc",
+                    "mode": "on",
+                    "autoOff": false
+                }
+            ]
+        },
+        {
+            "platform": "config",
+            "name": "Config",
+            "port": 8581,
+            "sudo": true
+        }
+    ]
+}
