@@ -74,7 +74,7 @@ Add this to the `platforms` section of your Homebridge `config.json`:
         "name": "Bedroom Light",
         "deviceId": "yy:yy:yy:yy:yy:yy",
         "mode": "switch",
-        "autoOff": true,
+  "autoOff": true,
         "autoOffDelay": 2
       }
     ],

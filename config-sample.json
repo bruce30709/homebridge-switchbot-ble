@@ -10,24 +10,18 @@
         {
             "platform": "SwitchbotBLE",
             "name": "SwitchBot",
-            "debug": false,
+            "debug": true,
+            "_bridge": {
+                "username": "0E:29:C4:07:CA:B1",
+                "port": 52811
+            },
             "devices": [
                 {
-                    "name": "客厅开关",
-                    "deviceId": "aa:bb:cc:dd:ee:ff",
-                    "mode": "press"
-                },
-                {
-                    "name": "卧室开关",
-                    "deviceId": "11:22:33:44:55:66",
-                    "mode": "switch"
-                },
-                {
-                    "name": "书房开关",
-                    "deviceId": "aa:bb:cc:11:22:33",
-                    "mode": "on",
-                    "autoOff": true,
-                    "autoOffDelay": 5
+                    "name": "SwitchBot",
+                    "deviceId": "DD:0B:72:15:C3:39",
+                    "mode": "switch",
+                    "autoOff": false,
+                    "autoOffDelay": 1
                 }
             ]
         },
