@@ -137,7 +137,7 @@ class SwitchbotController {
         this.name = config.name;
         this.logPrefix = `[${this.name}] `;
 
-        // 跟踪狀態
+        // 跟踪狀態 - 默认为关闭状态，避免初始化时错误触发命令
         this.currentState = false;
 
         // 獲取服務和特性引用
@@ -146,6 +146,9 @@ class SwitchbotController {
 
         // 配置配件服務
         this.configureServices();
+
+        // 初始化时尝试获取设备状态
+        this.refreshDeviceState();
 
         this.log.debug(`${this.logPrefix}SwitchbotController 初始化完成`);
         logToFile(`${this.logPrefix}SwitchbotController 初始化完成`, 'CONTROLLER');
@@ -197,74 +200,159 @@ class SwitchbotController {
         logToFile(`${this.logPrefix}執行命令: ${fullCmd}`, 'COMMAND');
 
         // 設置最大重試次數
-        const maxRetries = 3;
+        const maxRetries = 5;
         let retryCount = 0;
         let lastError = null;
 
-        return new Promise((resolve) => {
-            const attemptCommand = () => {
-                // 添加重試計數到日誌
-                const retryPrefix = retryCount > 0 ? `[重試 ${retryCount}/${maxRetries}] ` : '';
-                if (retryCount > 0) {
-                    this.log.info(`${this.logPrefix}${retryPrefix}重新嘗試執行命令: ${fullCmd}`);
-                    logToFile(`${this.logPrefix}${retryPrefix}重新嘗試執行命令: ${fullCmd}`, 'RETRY');
-                }
+        // 重构为使用async/await和Promise来提高可靠性
+        return new Promise(async (resolve) => {
+            // 将命令执行包装成Promise
+            const runCommand = () => {
+                return new Promise((cmdResolve) => {
+                    const retryPrefix = retryCount > 0 ? `[重試 ${retryCount}/${maxRetries}] ` : '';
 
-                exec(fullCmd, { timeout: 15000 }, (error, stdout, stderr) => {
-                    if (stderr) {
-                        this.log.debug(`${this.logPrefix}${retryPrefix}命令錯誤輸出: ${stderr}`);
-                        logToFile(`${this.logPrefix}${retryPrefix}命令錯誤輸出: ${stderr}`, 'ERROR');
+                    if (retryCount > 0) {
+                        this.log.info(`${this.logPrefix}${retryPrefix}執行重試命令`);
+                        logToFile(`${this.logPrefix}${retryPrefix}執行重試命令`, 'RETRY');
                     }
 
-                    if (stdout) {
-                        this.log.debug(`${this.logPrefix}${retryPrefix}命令標準輸出: ${stdout}`);
-                        logToFile(`${this.logPrefix}${retryPrefix}命令標準輸出: ${stdout}`, 'DEBUG');
-                    }
-
-                    if (error) {
-                        lastError = error;
-                        this.log.error(`${this.logPrefix}${retryPrefix}命令執行錯誤: ${error.message}`);
-                        logToFile(`${this.logPrefix}${retryPrefix}命令執行錯誤: ${error.message}`, 'ERROR');
-
-                        // 檢查是否為 "deviceCache is not defined" 錯誤並重試
-                        if ((error.message.includes("deviceCache is not defined") ||
-                            error.message.includes("No devices found") ||
-                            error.message.includes("Failed to execute") ||
-                            error.message.includes("Timeout")) &&
-                            retryCount < maxRetries) {
-
-                            retryCount++;
-                            this.log.info(`${this.logPrefix}將在 1 秒後進行第 ${retryCount} 次重試...`);
-                            logToFile(`${this.logPrefix}將在 1 秒後進行第 ${retryCount} 次重試...`, 'RETRY');
-
-                            // 在重試前稍微等待，避免立即重試可能導致的連續失敗
-                            setTimeout(attemptCommand, 1000 * retryCount);
-                            return;
-                        } else {
-                            // 已達最大重試次數或不是可重試的錯誤，但仍視為成功（更新 UI 狀態）
-                            if (retryCount >= maxRetries) {
-                                this.log.warn(`${this.logPrefix}達到最大重試次數 ${maxRetries}，但仍視為命令成功執行`);
-                                logToFile(`${this.logPrefix}達到最大重試次數 ${maxRetries}，但仍視為命令成功執行`, 'WARNING');
-                            } else {
-                                this.log.warn(`${this.logPrefix}錯誤不可重試，但仍視為命令成功執行: ${error.message}`);
-                                logToFile(`${this.logPrefix}錯誤不可重試，但仍視為命令成功執行: ${error.message}`, 'WARNING');
-                            }
+                    exec(fullCmd, { timeout: 30000 }, (error, stdout, stderr) => {
+                        if (stderr) {
+                            this.log.debug(`${this.logPrefix}${retryPrefix}命令錯誤輸出: ${stderr}`);
+                            logToFile(`${this.logPrefix}${retryPrefix}命令錯誤輸出: ${stderr}`, 'ERROR');
                         }
-                    } else {
-                        this.log.debug(`${this.logPrefix}${retryPrefix}命令執行成功`);
-                        logToFile(`${this.logPrefix}${retryPrefix}命令執行成功`, 'SUCCESS');
-                    }
 
-                    // 成功後更新狀態
-                    this.log.info(`${this.logPrefix}命令完成，當前狀態: ${this.currentState ? 'ON' : 'OFF'}`);
-                    logToFile(`${this.logPrefix}命令完成，當前狀態: ${this.currentState ? 'ON' : 'OFF'}`, 'STATE');
+                        if (stdout) {
+                            this.log.debug(`${this.logPrefix}${retryPrefix}命令標準輸出: ${stdout}`);
+                            logToFile(`${this.logPrefix}${retryPrefix}命令標準輸出: ${stdout}`, 'DEBUG');
+                        }
 
-                    resolve(this.currentState);
+                        cmdResolve({ error, stdout, stderr });
+                    });
                 });
             };
 
-            // 開始第一次嘗試
-            attemptCommand();
+            // 使用循环而不是递归来进行重试
+            while (retryCount <= maxRetries) {
+                const { error, stdout, stderr } = await runCommand();
+
+                if (error) {
+                    lastError = error;
+                    this.log.error(`${this.logPrefix}命令執行錯誤: ${error.message}`);
+                    logToFile(`${this.logPrefix}命令執行錯誤: ${error.message}`, 'ERROR');
+
+                    if (error.stack) {
+                        this.log.debug(`${this.logPrefix}错误堆栈: ${error.stack}`);
+                        logToFile(`${this.logPrefix}错误堆栈: ${error.stack}`, 'DEBUG');
+                    }
+
+                    // 判断是否需要重试
+                    if (retryCount < maxRetries) {
+                        retryCount++;
+                        const waitTime = 1000 * retryCount;
+                        this.log.warn(`${this.logPrefix}命令失敗，將在 ${waitTime}ms 後進行第 ${retryCount}/${maxRetries} 次重試`);
+                        logToFile(`${this.logPrefix}命令失敗，將在 ${waitTime}ms 後進行第 ${retryCount}/${maxRetries} 次重試`, 'RETRY');
+
+                        // 等待一段时间后继续循环
+                        await new Promise(wait => setTimeout(wait, waitTime));
+                        continue;
+                    } else {
+                        // 達到最大重試次數
+                        this.log.warn(`${this.logPrefix}達到最大重試次數 ${maxRetries}，但仍視為命令成功執行`);
+                        logToFile(`${this.logPrefix}達到最大重試次數 ${maxRetries}，但仍視為命令成功執行`, 'WARNING');
+                        break;
+                    }
+                } else {
+                    // 命令执行成功
+                    this.log.info(`${this.logPrefix}命令執行成功`);
+                    logToFile(`${this.logPrefix}命令執行成功`, 'SUCCESS');
+                    break;
+                }
+            }
+
+            // 最终状态更新和完成处理
+            this.log.info(`${this.logPrefix}最終處理結果: ${lastError ? '有錯誤但仍更新UI' : '成功'}, 狀態: ${this.currentState ? 'ON' : 'OFF'}`);
+            logToFile(`${this.logPrefix}最終處理結果: ${lastError ? '有錯誤但仍更新UI' : '成功'}, 狀態: ${this.currentState ? 'ON' : 'OFF'}`, 'FINAL');
+
+            resolve(this.currentState);
         });
+    }
+
+    // 尝试获取设备状态
+    async refreshDeviceState() {
+        this.log.info(`${this.logPrefix}正在初始化獲取設備狀態...`);
+        logToFile(`${this.logPrefix}正在初始化獲取設備狀態...`, 'STATE');
+
+        try {
+            const cmdPath = path.join(__dirname, 'bot-status.mjs');
+            const fullCmd = `node \"${cmdPath}\" ${this.deviceId}`;
+
+            this.log.debug(`${this.logPrefix}執行狀態查詢: ${fullCmd}`);
+            logToFile(`${this.logPrefix}執行狀態查詢: ${fullCmd}`, 'QUERY');
+
+            // 尝试获取设备状态
+            exec(fullCmd, { timeout: 10000 }, (error, stdout, stderr) => {
+                if (error) {
+                    this.log.warn(`${this.logPrefix}獲取設備狀態失敗: ${error.message}`);
+                    logToFile(`${this.logPrefix}獲取設備狀態失敗: ${error.message}`, 'WARNING');
+                    // 状态获取失败时保持默认状态
+                    return;
+                }
+
+                if (stdout) {
+                    try {
+                        // 尝试解析状态信息，提取JSON部分
+                        this.log.debug(`${this.logPrefix}設備狀態查詢結果: ${stdout}`);
+                        logToFile(`${this.logPrefix}設備狀態查詢結果: ${stdout}`, 'STATE');
+
+                        // 尝试从输出中提取JSON部分
+                        const jsonMatch = stdout.match(/(\{[\s\S]*\})/);
+                        if (jsonMatch && jsonMatch[1]) {
+                            // 找到了JSON部分
+                            const jsonString = jsonMatch[1];
+                            const statusData = JSON.parse(jsonString);
+
+                            this.log.info(`${this.logPrefix}成功解析設備狀態: ${jsonString}`);
+
+                            // 使用isOn属性来确定开关状态
+                            if (statusData.hasOwnProperty('isOn')) {
+                                this.currentState = statusData.isOn === true;
+                            } else if (statusData.state === 'ON' || statusData.state === 'on') {
+                                this.currentState = true
+                            } else if (statusData.state === 'OFF' || statusData.state === 'off') {
+                                this.currentState = false
+                            }
+
+                            this.log.info(`${this.logPrefix}初始化狀態設置為: ${this.currentState ? 'ON' : 'OFF'}`);
+                            logToFile(`${this.logPrefix}初始化狀態設置為: ${this.currentState ? 'ON' : 'OFF'}`, 'STATE');
+
+                            // 更新特性的缓存状态
+                            this.updateCachedState();
+                        } else {
+                            throw new Error('找不到有效的JSON數據');
+                        }
+                    } catch (parseError) {
+                        this.log.error(`${this.logPrefix}解析設備狀態失敗: ${parseError.message}`);
+                        logToFile(`${this.logPrefix}解析設備狀態失敗: ${parseError.message}`, 'ERROR');
+                    }
+                }
+            });
+        } catch (e) {
+            this.log.error(`${this.logPrefix}刷新設備狀態時發生錯誤: ${e.message}`);
+            logToFile(`${this.logPrefix}刷新設備狀態時發生錯誤: ${e.message}`, 'ERROR');
+        }
+    }
+
+    // 更新特性的缓存状态
+    updateCachedState() {
+        try {
+            // 更新HomeKit缓存中的状态
+            this.switchService.updateCharacteristic(this.Characteristic.On, this.currentState);
+            this.log.debug(`${this.logPrefix}更新HomeKit缓存状态为: ${this.currentState ? 'ON' : 'OFF'}`);
+            logToFile(`${this.logPrefix}更新HomeKit缓存状态为: ${this.currentState ? 'ON' : 'OFF'}`, 'CACHE');
+        } catch (e) {
+            this.log.error(`${this.logPrefix}更新特性缓存状态失败: ${e.message}`);
+            logToFile(`${this.logPrefix}更新特性缓存状态失败: ${e.message}`, 'ERROR');
+        }
     }
 } 

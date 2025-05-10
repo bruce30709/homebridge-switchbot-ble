@@ -181,7 +181,7 @@ export async function getBotStatus(deviceId, { duration = 3000 } = {}) {
 }
 
 // 試著發現設備，但不抛出錯誤
-async function tryDiscoverBot(deviceId, quick = true, duration = 1500, maxRetries = 3) {
+async function tryDiscoverBot(deviceId, quick = true, duration = 1500, maxRetries = 5) {
     const normalizedDeviceId = normalizeMacAddress(deviceId);
     if (!normalizedDeviceId) {
         logWithTimestamp('error', '無效的設備ID');
@@ -280,7 +280,7 @@ async function tryDiscoverBot(deviceId, quick = true, duration = 1500, maxRetrie
 }
 
 // 執行操作並忽略錯誤
-async function executeCommand(result, commandName, command, maxRetries = 2) {
+async function executeCommand(result, commandName, command, maxRetries = 5) {
     // 檢查是否是來自緩存的結果
     if (result && result.fromCache) {
         logWithTimestamp('info', `使用緩存的設備實例執行 ${commandName} 命令`);
@@ -385,7 +385,7 @@ async function executeCommand(result, commandName, command, maxRetries = 2) {
             }
 
             // 命令執行出錯，但仍視為成功
-            logWithTimestamp('error', `✗ ${commandName} 失敗: ${error.message}，但仍視為成功執行`);
+            logWithTimestamp('warn', `✗ ${commandName} 失敗: ${error.message}，但仍視為成功執行`);
 
             // 更新狀態 - 即使命令失敗，我們也假設命令執行成功並更新狀態
             const deviceId = normalizeMacAddress(result.bot.id || result.bot.address);
@@ -434,7 +434,7 @@ async function executeCommand(result, commandName, command, maxRetries = 2) {
 }
 
 // 按下Bot裝置
-export async function pressBot(deviceId, maxRetries = 3) {
+export async function pressBot(deviceId, maxRetries = 5) {
     logWithTimestamp('info', `嘗試按下設備: ${deviceId}`);
 
     // 嘗試發現設備，增加重試參數
@@ -445,7 +445,7 @@ export async function pressBot(deviceId, maxRetries = 3) {
 }
 
 // 開啟Bot裝置 (僅開關模式)
-export async function turnOnBot(deviceId, maxRetries = 3) {
+export async function turnOnBot(deviceId, maxRetries = 5) {
     logWithTimestamp('info', `嘗試開啟設備: ${deviceId}`);
 
     // 嘗試發現設備，增加重試參數
@@ -456,7 +456,7 @@ export async function turnOnBot(deviceId, maxRetries = 3) {
 }
 
 // 關閉Bot裝置 (僅開關模式)
-export async function turnOffBot(deviceId, maxRetries = 3) {
+export async function turnOffBot(deviceId, maxRetries = 5) {
     logWithTimestamp('info', `嘗試關閉設備: ${deviceId}`);
 
     // 嘗試發現設備，增加重試參數
