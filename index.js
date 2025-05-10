@@ -213,20 +213,16 @@ class SwitchbotController {
                 // 更新跟踪的狀態
                 this.currentState = value;
 
-                try {
-                    // 直接執行命令，但不等待完成
+                // 立即返回新状态，不等待命令执行完成
+                // 这样可以避免"This plugin slows down Homebridge"警告
+
+                // 在后台执行命令
+                setImmediate(() => {
                     this.executeCommand(value).catch(error => {
                         this.log.error(`${this.logPrefix}執行命令時發生錯誤: ${error.message}`);
                         logToFile(`${this.logPrefix}執行命令時發生錯誤: ${error.message}`, 'ERROR');
                     });
-
-                    // 立即返回，不等待命令执行完成
-                    return;
-                } catch (error) {
-                    this.log.error(`${this.logPrefix}設置開關狀態時發生錯誤: ${error.message}`);
-                    logToFile(`${this.logPrefix}設置開關狀態時發生錯誤: ${error.message}`, 'ERROR');
-                    throw error; // 传递错误给HomeKit
-                }
+                });
             });
 
         // 配置信息服務
@@ -296,10 +292,11 @@ class SwitchbotController {
                         logToFile(`${this.logPrefix}错误堆栈: ${error.stack}`, 'DEBUG');
                     }
 
-                    // 判断是否需要重试
+                    // 对所有错误都进行重试，不限于特定类型的错误
                     if (retryCount < maxRetries) {
                         retryCount++;
-                        const waitTime = 1000 * retryCount;
+                        // 增加重试间隔时间，随着重试次数增加而增加
+                        const waitTime = 1000 * Math.pow(1.5, retryCount - 1);
                         this.log.warn(`${this.logPrefix}命令失敗，將在 ${waitTime}ms 後進行第 ${retryCount}/${maxRetries} 次重試`);
                         logToFile(`${this.logPrefix}命令失敗，將在 ${waitTime}ms 後進行第 ${retryCount}/${maxRetries} 次重試`, 'RETRY');
 
@@ -355,7 +352,7 @@ class SwitchbotController {
                         this.log.debug(`${this.logPrefix}設備狀態查詢結果: ${stdout}`);
                         logToFile(`${this.logPrefix}設備狀態查詢結果: ${stdout}`, 'STATE');
 
-                        // 尝试从输出中提取JSON部分
+                        // 使用正则表达式从输出中提取JSON部分
                         const jsonMatch = stdout.match(/(\{[\s\S]*\})/);
                         if (jsonMatch && jsonMatch[1]) {
                             // 找到了JSON部分
@@ -363,8 +360,9 @@ class SwitchbotController {
                             const statusData = JSON.parse(jsonString);
 
                             this.log.info(`${this.logPrefix}成功解析設備狀態: ${jsonString}`);
+                            logToFile(`${this.logPrefix}成功解析設備狀態: ${jsonString}`, 'STATE');
 
-                            // 使用isOn属性来确定开关状态
+                            // 处理isOn属性取反的情况
                             if (statusData.hasOwnProperty('isOn')) {
                                 this.currentState = statusData.isOn === true;
                             } else if (statusData.state === 'ON' || statusData.state === 'on') {

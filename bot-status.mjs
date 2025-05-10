@@ -42,6 +42,9 @@ async function getDeviceStatus(deviceId) {
                 deviceId: status.deviceId,
                 type: status.type,
                 mode: status.mode || 'unknown',
+                // 注意: 这里的isOn状态逻辑是反的，请在使用时注意反转
+                // 在SwitchBot Bot设备中，"OFF"表示按钮未被按下（即开关可能处于"开"状态）
+                // 这与HomeKit的逻辑相反，所以在index.js中我们会进行取反处理
                 isOn: status.state === 'OFF',
                 battery: status.battery
             };
@@ -73,6 +76,8 @@ async function getDeviceStatus(deviceId) {
                     deviceId: targetDevice.address,
                     type: targetDevice.type || 'Bot',
                     mode: targetDevice.mode || 'unknown',
+                    // 注意: 这里的isOn状态逻辑是反的，请在使用时注意反转
+                    // 在SwitchBot Bot设备中，"OFF"表示按钮未被按下（即开关可能处于"开"状态）
                     isOn: targetDevice.state === 'OFF',
                     battery: targetDevice.battery
                 };

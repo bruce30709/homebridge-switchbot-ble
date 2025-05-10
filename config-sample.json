@@ -1,7 +1,7 @@
 {
     "bridge": {
         "name": "Homebridge",
-        "username": "CC:22:3D:E3:CE:30",
+        "username": "0E:12:3A:B4:C5:D6",
         "port": 51826,
         "pin": "031-45-154"
     },
@@ -10,20 +10,24 @@
         {
             "platform": "SwitchbotBLE",
             "name": "SwitchBot",
-            "debug": true,
+            "debug": false,
             "devices": [
                 {
-                    "name": "客廳開關",
+                    "name": "客厅开关",
                     "deviceId": "aa:bb:cc:dd:ee:ff",
-                    "mode": "press",
-                    "autoOff": true,
-                    "autoOffDelay": 1
+                    "mode": "press"
                 },
                 {
-                    "name": "臥室開關",
-                    "deviceId": "xx:yy:zz:aa:bb:cc",
+                    "name": "卧室开关",
+                    "deviceId": "11:22:33:44:55:66",
+                    "mode": "switch"
+                },
+                {
+                    "name": "书房开关",
+                    "deviceId": "aa:bb:cc:11:22:33",
                     "mode": "on",
-                    "autoOff": false
+                    "autoOff": true,
+                    "autoOffDelay": 5
                 }
             ]
         },
