@@ -1,4 +1,4 @@
-// SwitchBot API服務器 - 提供直接呼叫的 JavaScript API 以控制SwitchBot設備
+// SwitchBot API Server - Provides direct JavaScript API to control SwitchBot devices
 import { SwitchBotBLE } from 'node-switchbot';
 import { exec } from 'child_process';
 import { promisify } from 'util';
@@ -12,8 +12,8 @@ const switchbot = new SwitchBotBLE({
     commandTimeout: 1000
 });
 
-const CACHE_DURATION = 60000; // 緩存有效期: 60秒
-const deviceCache = {}; // 用於存储設備狀態和實例的緩存對象
+const CACHE_DURATION = 60000; // Cache validity: 60 seconds
+const deviceCache = {}; // Cache object for storing device status and instances
 
 function normalizeMacAddress(mac) {
     if (!mac) return null;
@@ -38,7 +38,7 @@ export async function checkAdminRights() {
     }
 }
 
-// 改進的日誌輸出函數
+// Improved log output function
 function logWithTimestamp(level, message) {
     const timestamp = new Date().toLocaleString();
     let prefix;
@@ -66,11 +66,11 @@ function logWithTimestamp(level, message) {
 export async function scanDevices({ duration = 10000 } = {}) {
     let foundDevices = [];
     try {
-        logWithTimestamp('info', `開始掃描設備 (持續 ${duration}ms)...`);
+        logWithTimestamp('info', `Start scanning devices (duration ${duration}ms)...`);
 
         switchbot.onadvertisement = (ad) => {
             if (!foundDevices.find(d => d.address === ad.address)) {
-                logWithTimestamp('debug', `接收到廣播: ${ad.address} (ID: ${ad.id || 'unknown'})`);
+                logWithTimestamp('debug', `Received advertisement: ${ad.address} (ID: ${ad.id || 'unknown'})`);
 
                 const device = {
                     address: ad.address,
@@ -81,7 +81,7 @@ export async function scanDevices({ duration = 10000 } = {}) {
                 };
 
                 if (ad.serviceData) {
-                    logWithTimestamp('debug', `設備 ${ad.address} 服務數據: ${JSON.stringify(ad.serviceData)}`);
+                    logWithTimestamp('debug', `Device ${ad.address} service data: ${JSON.stringify(ad.serviceData)}`);
 
                     if (ad.serviceData.model === 'H') {
                         device.type = 'Bot';
@@ -101,28 +101,28 @@ export async function scanDevices({ duration = 10000 } = {}) {
                 }
 
                 foundDevices.push(device);
-                logWithTimestamp('info', `發現設備: ${device.address} (${device.type})`);
+                logWithTimestamp('info', `Device found: ${device.address} (${device.type})`);
             }
         };
 
         await switchbot.startScan();
-        logWithTimestamp('debug', '掃描已啟動');
+        logWithTimestamp('debug', 'Scan started');
 
         await new Promise(resolve => setTimeout(resolve, duration));
-        logWithTimestamp('debug', '掃描時間結束');
+        logWithTimestamp('debug', 'Scan duration ended');
 
         await switchbot.stopScan();
-        logWithTimestamp('info', `掃描完成，找到 ${foundDevices.length} 個設備`);
+        logWithTimestamp('info', `Scan complete, found ${foundDevices.length} devices`);
 
         return foundDevices;
     } catch (error) {
-        logWithTimestamp('error', `掃描錯誤: ${error.message}`);
+        logWithTimestamp('error', `Scan error: ${error.message}`);
         console.error(error);
-        return foundDevices; // 即使出錯也返回已發現的設備
+        return foundDevices; // Return found devices even if error
     }
 }
 
-// 通過廣播方式獲取特定設備狀態
+// Get specific device status via advertisement
 export async function getBotStatus(deviceId, { duration = 3000 } = {}) {
     const normalizedDeviceId = normalizeMacAddress(deviceId);
     if (!normalizedDeviceId) {
@@ -132,7 +132,7 @@ export async function getBotStatus(deviceId, { duration = 3000 } = {}) {
             state: null,
             mode: null,
             battery: null,
-            error: '無效的設備ID'
+            error: 'Invalid device ID'
         };
     }
 
@@ -147,7 +147,7 @@ export async function getBotStatus(deviceId, { duration = 3000 } = {}) {
     let deviceFound = false;
 
     try {
-        // 設置廣播監聽器
+        // Set advertisement listener
         switchbot.onadvertisement = (ad) => {
             if (ad.address.toLowerCase() === normalizedDeviceId.toLowerCase()) {
                 deviceFound = true;
@@ -159,43 +159,43 @@ export async function getBotStatus(deviceId, { duration = 3000 } = {}) {
             }
         };
 
-        // 開始掃描
+        // Start scan
         await switchbot.startScan();
 
-        // 等待指定時間
+        // Wait for specified duration
         await new Promise(resolve => setTimeout(resolve, duration));
 
-        // 停止掃描
+        // Stop scan
         await switchbot.stopScan();
 
         if (!deviceFound) {
-            deviceStatus.error = '設備未響應廣播';
+            deviceStatus.error = 'Device did not respond to advertisement';
         }
 
         return deviceStatus;
     } catch (error) {
-        console.error('取得狀態錯誤:', error.message);
+        console.error('Error getting status:', error.message);
         deviceStatus.error = error.message;
         return deviceStatus;
     }
 }
 
-// 試著發現設備，但不抛出錯誤
+// Try to discover device, but do not throw error
 async function tryDiscoverBot(deviceId, quick = true, duration = 1500, maxRetries = 5) {
     const normalizedDeviceId = normalizeMacAddress(deviceId);
     if (!normalizedDeviceId) {
-        logWithTimestamp('error', '無效的設備ID');
+        logWithTimestamp('error', 'Invalid device ID');
         return {
             success: false,
-            error: '無效的設備ID',
+            error: 'Invalid device ID',
             bot: null
         };
     }
 
-    // 檢查緩存中是否有已連接的設備實例
+    // Check if there is a cached device instance
     if (deviceCache[normalizedDeviceId] && deviceCache[normalizedDeviceId].botInstance &&
         (Date.now() - deviceCache[normalizedDeviceId].lastDiscovered < CACHE_DURATION)) {
-        logWithTimestamp('info', `使用緩存的設備實例: ${normalizedDeviceId}`);
+        logWithTimestamp('info', `Using cached device instance: ${normalizedDeviceId}`);
         return {
             success: true,
             bot: deviceCache[normalizedDeviceId].botInstance,
@@ -203,21 +203,21 @@ async function tryDiscoverBot(deviceId, quick = true, duration = 1500, maxRetrie
         };
     }
 
-    // 使用重試機制尋找設備
+    // Use retry mechanism to find device
     let retryCount = 0;
     let lastError = null;
 
     while (retryCount <= maxRetries) {
         try {
             if (retryCount > 0) {
-                logWithTimestamp('info', `重試發現設備 (第 ${retryCount} 次): ${normalizedDeviceId}`);
-                // 重試間隔稍微增加，避免過度頻繁請求
+                logWithTimestamp('info', `Retry discovering device (attempt ${retryCount}): ${normalizedDeviceId}`);
+                // Increase retry interval to avoid too frequent requests
                 await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
             } else {
-                logWithTimestamp('info', `嘗試發現設備: ${normalizedDeviceId}`);
+                logWithTimestamp('info', `Trying to discover device: ${normalizedDeviceId}`);
             }
 
-            logWithTimestamp('debug', `掃描參數: model=H, id=${normalizedDeviceId}, quick=${quick}, duration=${duration}ms`);
+            logWithTimestamp('debug', `Scan parameters: model=H, id=${normalizedDeviceId}, quick=${quick}, duration=${duration}ms`);
 
             const devices = await switchbot.discover({
                 model: 'H',
@@ -227,18 +227,18 @@ async function tryDiscoverBot(deviceId, quick = true, duration = 1500, maxRetrie
             });
 
             if (!devices || devices.length === 0) {
-                // 只有在最後一次重試才記錄警告
+                // Only log warning on last retry
                 if (retryCount >= maxRetries) {
-                    logWithTimestamp('warn', `找不到設備: ${normalizedDeviceId} (已重試 ${retryCount} 次)`);
+                    logWithTimestamp('warn', `Device not found: ${normalizedDeviceId} (retried ${retryCount} times)`);
                 }
 
-                // 捕獲特定錯誤提示以便重試
-                lastError = `找不到設備: ${normalizedDeviceId} (重試 ${retryCount}/${maxRetries})`;
+                // Capture specific error message for retry
+                lastError = `Device not found: ${normalizedDeviceId} (retry ${retryCount}/${maxRetries})`;
                 retryCount++;
                 continue;
             }
 
-            // 更新緩存
+            // Update cache
             if (!deviceCache[normalizedDeviceId]) {
                 deviceCache[normalizedDeviceId] = {};
             }
@@ -246,68 +246,68 @@ async function tryDiscoverBot(deviceId, quick = true, duration = 1500, maxRetrie
             deviceCache[normalizedDeviceId].botInstance = devices[0];
             deviceCache[normalizedDeviceId].lastDiscovered = Date.now();
 
-            logWithTimestamp('info', `成功發現設備: ${normalizedDeviceId}${retryCount > 0 ? ` (重試 ${retryCount} 次後)` : ''}`);
+            logWithTimestamp('info', `Successfully discovered device: ${normalizedDeviceId}${retryCount > 0 ? ` (after ${retryCount} retries)` : ''}`);
             return {
                 success: true,
                 bot: devices[0],
                 fromCache: false
             };
         } catch (error) {
-            // 捕獲"No devices found during discovery"錯誤並重試
+            // Capture "No devices found during discovery" error and retry
             if (error.message.includes("No devices found") && retryCount < maxRetries) {
-                logWithTimestamp('warn', `發現設備時出錯 (將重試): ${error.message}`);
+                logWithTimestamp('warn', `Error discovering device (will retry): ${error.message}`);
                 lastError = error.message;
                 retryCount++;
                 continue;
             }
 
-            // 這是真正的發現錯誤或已達到最大重試次數
-            logWithTimestamp('error', `發現設備時出錯: ${error.message} (已重試 ${retryCount} 次)`);
+            // This is a real discovery error or max retries reached
+            logWithTimestamp('error', `Error discovering device: ${error.message} (retried ${retryCount} times)`);
             return {
                 success: false,
-                error: `發現設備時出錯: ${error.message}`,
+                error: `Error discovering device: ${error.message}`,
                 bot: null
             };
         }
     }
 
-    // 如果重試全部失敗，返回最後的錯誤
+    // If all retries fail, return last error
     return {
         success: false,
-        error: lastError || `找不到設備: ${normalizedDeviceId} (重試耗盡)`,
+        error: lastError || `Device not found: ${normalizedDeviceId} (retries exhausted)`,
         bot: null
     };
 }
 
-// 執行操作並忽略錯誤
+// Execute command and ignore error
 async function executeCommand(result, commandName, command, maxRetries = 5) {
-    // 檢查是否是來自緩存的結果
+    // Check if it's from cache result
     if (result && result.fromCache) {
-        logWithTimestamp('info', `使用緩存的設備實例執行 ${commandName} 命令`);
+        logWithTimestamp('info', `Using cached device instance to execute ${commandName} command`);
     }
 
-    // 檢查是否真的有設備可用
+    // Check if there is really a device available
     if (!result || !result.success || !result.bot) {
-        let message = '找不到設備';
+        let message = 'Device not found';
         if (result && result.error) {
             message = result.error;
-            if (result.error.includes('發現設備時出錯')) {
-                logWithTimestamp('warn', `警告: ${result.error} (已忽略)`);
+            if (result.error.includes('Error discovering device')) {
+                logWithTimestamp('warn', `Warning: ${result.error} (ignored)`);
             }
         }
-        logWithTimestamp('warn', `找不到設備或無法連接，但仍視為 ${commandName} 成功執行`);
+        logWithTimestamp('warn', `Device not found or unable to connect, but still consider ${commandName} command executed successfully`);
 
-        // 即使沒有找到設備，也要根據命令更新狀態緩存
+        // Even if no device is found, update status cache based on command
         const deviceId = result && result.deviceId ? normalizeMacAddress(result.deviceId) : null;
         if (deviceId) {
-            // 初始化設備緩存如果不存在
+            // Initialize device cache if it doesn't exist
             if (!deviceCache[deviceId]) {
                 deviceCache[deviceId] = {
                     lastUpdated: Date.now()
                 };
             }
 
-            // 根據命令類型設置狀態
+            // Set status based on command type
             if (command === 'turnOn') {
                 deviceCache[deviceId].state = 'ON';
             } else if (command === 'turnOff') {
@@ -316,13 +316,13 @@ async function executeCommand(result, commandName, command, maxRetries = 5) {
         }
 
         return {
-            success: true,  // 始終返回成功
+            success: true,  // Always return success
             commandSent: true,
             virtuallyExecuted: true
         };
     }
 
-    // 嘗試執行命令並重試
+    // Try to execute command and retry
     let retryCount = 0;
     let lastError = null;
 
@@ -330,7 +330,7 @@ async function executeCommand(result, commandName, command, maxRetries = 5) {
         try {
             const bot = result.bot;
             if (typeof bot[command] !== 'function') {
-                logWithTimestamp('warn', `⚠ ${commandName} 不支援: 設備沒有 ${command} 方法，但仍視為成功`);
+                logWithTimestamp('warn', `⚠ ${commandName} command not supported: Device does not have ${command} method, but still consider successful`);
                 return {
                     success: true,
                     commandSent: true
@@ -338,23 +338,23 @@ async function executeCommand(result, commandName, command, maxRetries = 5) {
             }
 
             if (retryCount > 0) {
-                logWithTimestamp('info', `重試執行 ${command} 命令 (第 ${retryCount} 次)...`);
-                // 重試之間稍微暫停
+                logWithTimestamp('info', `Retry executing ${command} command (attempt ${retryCount})...`);
+                // Wait between retries
                 await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
             } else {
-                logWithTimestamp('info', `執行 ${command} 命令...`);
+                logWithTimestamp('info', `Executing ${command} command...`);
             }
 
             await bot[command]();
 
-            // 更新緩存中的狀態
+            // Update status in cache
             const deviceId = normalizeMacAddress(bot.id || bot.address);
             if (deviceId) {
                 if (!deviceCache[deviceId]) {
                     deviceCache[deviceId] = {};
                 }
 
-                // 根據命令更新狀態
+                // Update status based on command
                 if (command === 'turnOn') {
                     deviceCache[deviceId].state = 'ON';
                 } else if (command === 'turnOff') {
@@ -364,49 +364,49 @@ async function executeCommand(result, commandName, command, maxRetries = 5) {
                 deviceCache[deviceId].lastUpdated = Date.now();
             }
 
-            logWithTimestamp('info', `✓ ${commandName} 成功${retryCount > 0 ? ` (重試 ${retryCount} 次後)` : ''}`);
+            logWithTimestamp('info', `✓ ${commandName} successful${retryCount > 0 ? ` (after ${retryCount} retries)` : ''}`);
             return {
                 success: true,
                 commandSent: true
             };
         } catch (error) {
-            // 檢查是否為"No devices found"類型的錯誤，需要重試
+            // Check if it's "No devices found" type error, need to retry
             if ((error.message.includes("No devices found") ||
                 error.message.includes("disconnected") ||
                 error.message.includes("timeout") ||
                 error.message.includes("GATT operation failed")) &&
                 retryCount < maxRetries) {
-                logWithTimestamp('warn', `${commandName} 失敗 (將重試): ${error.message}`);
+                logWithTimestamp('warn', `${commandName} failed (will retry): ${error.message}`);
                 lastError = error.message;
                 retryCount++;
-                // 短暫等待後重試
+                // Wait briefly before retrying
                 await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
                 continue;
             }
 
-            // 命令執行出錯，但仍視為成功
-            logWithTimestamp('warn', `✗ ${commandName} 失敗: ${error.message}，但仍視為成功執行`);
+            // Command execution failed, but still consider successful
+            logWithTimestamp('warn', `✗ ${commandName} failed: ${error.message}, but still consider successful execution`);
 
-            // 更新狀態 - 即使命令失敗，我們也假設命令執行成功並更新狀態
+            // Update status - even if command failed, we assume command execution successful and update status
             const deviceId = normalizeMacAddress(result.bot.id || result.bot.address);
             if (deviceId) {
                 if (!deviceCache[deviceId]) {
                     deviceCache[deviceId] = {};
                 }
 
-                // 根據命令設置狀態，即使失敗也更新狀態 (for UI consistency)
+                // Set status based on command, even if failed, update status (for UI consistency)
                 if (command === 'turnOn') {
                     deviceCache[deviceId].state = 'ON';
-                    logWithTimestamp('info', `[狀態已更新] ${deviceId} 設為 ON (即使命令可能失敗)`);
+                    logWithTimestamp('info', `[Status updated] ${deviceId} set to ON (even if command may fail)`);
                 } else if (command === 'turnOff') {
                     deviceCache[deviceId].state = 'OFF';
-                    logWithTimestamp('info', `[狀態已更新] ${deviceId} 設為 OFF (即使命令可能失敗)`);
+                    logWithTimestamp('info', `[Status updated] ${deviceId} set to OFF (even if command may fail)`);
                 }
 
                 deviceCache[deviceId].lastUpdated = Date.now();
             }
 
-            // 清除緩存，強制下次重新發現
+            // Clear cache, force next discovery
             if (result.bot) {
                 const deviceId = result.bot.id || result.bot.address;
                 if (deviceId && deviceCache[normalizeMacAddress(deviceId)]) {
@@ -415,58 +415,58 @@ async function executeCommand(result, commandName, command, maxRetries = 5) {
             }
 
             return {
-                success: true,  // 仍然返回成功
+                success: true,  // Still return success
                 commandSent: true,
                 error: error.message,
-                virtuallyExecuted: true  // 標記為虛擬執行
+                virtuallyExecuted: true  // Mark as virtual execution
             };
         }
     }
 
-    // 如果重試全部失敗，但我們仍然視為成功
-    logWithTimestamp('error', `✗ ${commandName} 重試 ${maxRetries} 次後仍失敗，但視為成功執行`);
+    // If all retries fail, but we still consider successful
+    logWithTimestamp('error', `✗ ${commandName} failed after ${maxRetries} retries, but still consider successful execution`);
     return {
         success: true,
         commandSent: true,
         virtuallyExecuted: true,
-        error: lastError || "重試次數耗盡"
+        error: lastError || "Retries exhausted"
     };
 }
 
-// 按下Bot裝置
+// Press device
 export async function pressBot(deviceId, maxRetries = 5) {
-    logWithTimestamp('info', `嘗試按下設備: ${deviceId}`);
+    logWithTimestamp('info', `Trying to press device: ${deviceId}`);
 
-    // 嘗試發現設備，增加重試參數
+    // Try to discover device, increase retry parameter
     const result = await tryDiscoverBot(deviceId, true, 1500, maxRetries);
 
-    // 執行按下操作
-    return executeCommand(result, '按下', 'press');
+    // Execute press operation
+    return executeCommand(result, 'Press', 'press');
 }
 
-// 開啟Bot裝置 (僅開關模式)
+// Turn on device (only switch mode)
 export async function turnOnBot(deviceId, maxRetries = 5) {
-    logWithTimestamp('info', `嘗試開啟設備: ${deviceId}`);
+    logWithTimestamp('info', `Trying to turn on device: ${deviceId}`);
 
-    // 嘗試發現設備，增加重試參數
+    // Try to discover device, increase retry parameter
     const result = await tryDiscoverBot(deviceId, true, 1500, maxRetries);
 
-    // 執行開啟操作
-    return executeCommand(result, '開啟', 'turnOn');
+    // Execute turn on operation
+    return executeCommand(result, 'Turn On', 'turnOn');
 }
 
-// 關閉Bot裝置 (僅開關模式)
+// Turn off device (only switch mode)
 export async function turnOffBot(deviceId, maxRetries = 5) {
-    logWithTimestamp('info', `嘗試關閉設備: ${deviceId}`);
+    logWithTimestamp('info', `Trying to turn off device: ${deviceId}`);
 
-    // 嘗試發現設備，增加重試參數
+    // Try to discover device, increase retry parameter
     const result = await tryDiscoverBot(deviceId, true, 1500, maxRetries);
 
-    // 執行關閉操作
-    return executeCommand(result, '關閉', 'turnOff');
+    // Execute turn off operation
+    return executeCommand(result, 'Turn Off', 'turnOff');
 }
 
-// 獲取服務器狀態
+// Get server status
 export async function getServerStatus() {
     const isAdmin = await checkAdminRights();
 
@@ -476,7 +476,7 @@ export async function getServerStatus() {
         uptime: process.uptime().toFixed(2) + ' seconds',
         adminRights: isAdmin,
         adminMessage: isAdmin
-            ? '✓ 正在以管理員權限運行'
-            : '⚠ 未以管理員權限運行，可能無法使用藍牙'
+            ? '✓ Running with admin rights'
+            : '⚠ Not running with admin rights, may not use Bluetooth'
     };
 } 

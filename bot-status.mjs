@@ -1,21 +1,21 @@
 #!/usr/bin/env node
 /**
- * SwitchBot Bot 状态查询工具
- * 获取SwitchBot设备的当前状态
+ * SwitchBot Bot Status Query Tool
+ * Get the current status of SwitchBot device
  */
 import * as SwitchBotAPI from './switchbot-api-server.mjs';
 
-// 获取命令行参数
+// Get command line arguments
 const args = process.argv.slice(2);
 const deviceId = args[0];
 
 if (!deviceId) {
-    console.error('错误: 未提供设备ID');
-    console.log('用法: node bot-status.mjs <设备ID>');
+    console.error('Error: No device ID provided');
+    console.log('Usage: node bot-status.mjs <deviceID>');
     process.exit(1);
 }
 
-// 标准化MAC地址格式
+// Normalize MAC address format
 function normalizeMacAddress(mac) {
     if (!mac) return null;
     if (/^([0-9a-f]{2}:){5}[0-9a-f]{2}$/i.test(mac)) {
@@ -30,21 +30,19 @@ function normalizeMacAddress(mac) {
 
 async function getDeviceStatus(deviceId) {
     try {
-        // 先使用广播方式获取设备状态
+        // First try to get device status via advertisement
         const normalizedDeviceId = normalizeMacAddress(deviceId);
-        console.error(`尝试获取设备 ${normalizedDeviceId} 的状态...`);
+        console.error(`Trying to get status of device ${normalizedDeviceId} ...`);
 
         const status = await SwitchBotAPI.getBotStatus(normalizedDeviceId, { duration: 5000 });
 
         if (status && !status.error) {
-            // 返回格式化的状态信息
+            // Return formatted status info
             const result = {
                 deviceId: status.deviceId,
                 type: status.type,
                 mode: status.mode || 'unknown',
-                // 注意: 这里的isOn状态逻辑是反的，请在使用时注意反转
-                // 在SwitchBot Bot设备中，"OFF"表示按钮未被按下（即开关可能处于"开"状态）
-                // 这与HomeKit的逻辑相反，所以在index.js中我们会进行取反处理
+                // Note: The isOn logic here is inverted. In SwitchBot Bot devices, "OFF" means the button is not pressed (the switch may be ON). This is opposite to HomeKit logic, so we invert in index.js
                 isOn: status.state === 'OFF',
                 battery: status.battery
             };
@@ -54,13 +52,13 @@ async function getDeviceStatus(deviceId) {
         }
 
         if (status && status.error) {
-            console.error(`通过广播获取状态失败: ${status.error}`);
+            console.error(`Failed to get status via advertisement: ${status.error}`);
         }
 
-        // 如果广播方式失败，尝试通过扫描并连接获取状态
-        console.error('尝试通过扫描设备获取状态...');
+        // If advertisement fails, try to get status by scanning and connecting
+        console.error('Trying to get status by scanning device...');
 
-        // 扫描设备
+        // Scan devices
         const devices = await SwitchBotAPI.scanDevices({ duration: 3000 });
         const targetDevice = devices.find(d =>
             d.address.toLowerCase() === normalizedDeviceId.toLowerCase() ||
@@ -68,41 +66,40 @@ async function getDeviceStatus(deviceId) {
         );
 
         if (targetDevice) {
-            console.error(`找到设备: ${targetDevice.address}`);
+            console.error(`Found device: ${targetDevice.address}`);
 
-            // 如果已经从扫描中获取了状态信息
+            // If status info is already available from scan
             if (targetDevice.state) {
                 const result = {
                     deviceId: targetDevice.address,
                     type: targetDevice.type || 'Bot',
                     mode: targetDevice.mode || 'unknown',
-                    // 注意: 这里的isOn状态逻辑是反的，请在使用时注意反转
-                    // 在SwitchBot Bot设备中，"OFF"表示按钮未被按下（即开关可能处于"开"状态）
+                    // Note: The isOn logic here is inverted. In SwitchBot Bot devices, "OFF" means the button is not pressed (the switch may be ON). This is opposite to HomeKit logic, so we invert in index.js
                     isOn: targetDevice.state === 'OFF',
                     battery: targetDevice.battery
                 };
 
-                // 只输出JSON到标准输出，其他消息输出到错误输出
+                // Only output JSON to stdout, other messages to stderr
                 console.log(JSON.stringify(result, null, 2));
                 return;
             }
         }
 
-        // 如果以上方法都失败，返回默认状态（离线）
-        console.error(`无法获取设备 ${normalizedDeviceId} 的状态`);
+        // If all methods fail, return default (offline) status
+        console.error(`Unable to get status of device ${normalizedDeviceId}`);
         const defaultResult = {
             deviceId: normalizedDeviceId,
             type: 'Bot',
             mode: 'unknown',
             isOn: false,
-            error: '无法获取设备状态'
+            error: 'Unable to get device status'
         };
 
-        // 只输出干净的JSON结果
+        // Only output clean JSON result
         console.log(JSON.stringify(defaultResult, null, 2));
     } catch (error) {
-        console.error(`获取状态时发生错误: ${error.message}`);
-        // 出错时返回基本的JSON对象，确保输出格式一致
+        console.error(`Error occurred while getting status: ${error.message}`);
+        // On error, return a basic JSON object to ensure consistent output format
         const errorResult = {
             deviceId: deviceId,
             type: 'Bot',
@@ -115,9 +112,9 @@ async function getDeviceStatus(deviceId) {
     }
 }
 
-// 执行状态查询
+// Execute status query
 getDeviceStatus(deviceId).finally(() => {
-    // 确保程序在完成后退出
+    // Ensure the program exits after completion
     setTimeout(() => {
         process.exit(0);
     }, 1000);

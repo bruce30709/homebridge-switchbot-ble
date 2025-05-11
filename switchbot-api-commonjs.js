@@ -169,7 +169,7 @@ module.exports = {
             nodeVersion: process.version,
             uptime: process.uptime().toFixed(2) + ' seconds',
             adminRights: true,
-            adminMessage: '✓ 正在以管理員權限運行'
+            adminMessage: '✓ Running with administrator rights'
         };
     }
 }; 
