@@ -13,7 +13,7 @@ const IS_API_MODE = process.env.NODE_ENV === 'api' ||
 
 // 設置超時自動退出（僅API模式）
 if (IS_API_MODE) {
-    const AUTO_EXIT_TIMEOUT = 5000; // 5秒後自動退出
+    const AUTO_EXIT_TIMEOUT = 15000; // 15秒後自動退出
     setTimeout(() => {
         console.log('API模式：操作超時，自動退出');
         process.exit(0);
@@ -325,6 +325,8 @@ async function main() {
 
                 if (devices.length === 0) {
                     console.log('沒有找到 SwitchBot 設備');
+                    closeReadlineIfNeeded();
+                    process.exit(0);
                 } else {
                     console.log(`找到 ${devices.length} 個 SwitchBot 設備:`);
                     devices.forEach((device, index) => {
@@ -335,8 +337,9 @@ async function main() {
                         console.log(`狀態: ${device.state || '未知'}`);
                         console.log(`電池: ${device.battery !== undefined ? `${device.battery}%` : '未知'}`);
                     });
+                    closeReadlineIfNeeded();
+                    process.exit(0);
                 }
-                process.exit(0);
                 break;
 
             case 'find':
@@ -351,11 +354,10 @@ async function main() {
                     console.log(`設備找到！標準MAC地址: ${foundDevice}`);
                     const status = await SwitchBotAPI.getBotStatus(foundDevice);
                     console.log(formatDeviceStatus(status));
-
-                    // 立即退出程序
-                    setTimeout(() => process.exit(0), 100);
+                    setTimeout(() => { closeReadlineIfNeeded(); process.exit(0); }, 100);
                 } else {
                     console.log('無法找到匹配的設備');
+                    closeReadlineIfNeeded();
                     process.exit(0);
                 }
                 break;
@@ -383,6 +385,7 @@ async function main() {
                     targetDeviceId = await scanAndSelect();
                     if (!targetDeviceId) {
                         console.log('操作已取消');
+                        closeReadlineIfNeeded();
                         process.exit(0);
                         break;
                     }
@@ -391,7 +394,7 @@ async function main() {
                 console.log(`獲取設備 ${targetDeviceId} 狀態...`);
                 const status = await SwitchBotAPI.getBotStatus(targetDeviceId);
                 console.log(formatDeviceStatus(status));
-                // 立即退出程序
+                closeReadlineIfNeeded();
                 process.exit(0);
                 break;
             }
@@ -408,6 +411,7 @@ async function main() {
                     targetDeviceId = await scanAndSelect();
                     if (!targetDeviceId) {
                         console.log('操作已取消');
+                        closeReadlineIfNeeded();
                         process.exit(0);
                         break;
                     }
@@ -415,9 +419,8 @@ async function main() {
 
                 console.log(`按下設備 ${targetDeviceId}...`);
                 const pressResult = await SwitchBotAPI.pressBot(targetDeviceId);
-                // 無論結果如何都視為成功
                 console.log('✓ 按下命令已成功發送');
-                // 立即退出程序
+                closeReadlineIfNeeded();
                 process.exit(0);
                 break;
             }
@@ -434,6 +437,7 @@ async function main() {
                     targetDeviceId = await scanAndSelect();
                     if (!targetDeviceId) {
                         console.log('操作已取消');
+                        closeReadlineIfNeeded();
                         process.exit(0);
                         break;
                     }
@@ -441,9 +445,8 @@ async function main() {
 
                 console.log(`開啟設備 ${targetDeviceId}...`);
                 const onResult = await SwitchBotAPI.turnOnBot(targetDeviceId);
-                // 無論結果如何都視為成功
                 console.log('✓ 開啟命令已成功發送');
-                // 立即退出程序
+                closeReadlineIfNeeded();
                 process.exit(0);
                 break;
             }
@@ -460,6 +463,7 @@ async function main() {
                     targetDeviceId = await scanAndSelect();
                     if (!targetDeviceId) {
                         console.log('操作已取消');
+                        closeReadlineIfNeeded();
                         process.exit(0);
                         break;
                     }
@@ -467,9 +471,8 @@ async function main() {
 
                 console.log(`關閉設備 ${targetDeviceId}...`);
                 const offResult = await SwitchBotAPI.turnOffBot(targetDeviceId);
-                // 無論結果如何都視為成功
                 console.log('✓ 關閉命令已成功發送');
-                // 立即退出程序
+                closeReadlineIfNeeded();
                 process.exit(0);
                 break;
             }

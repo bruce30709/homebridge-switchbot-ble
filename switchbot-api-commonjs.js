@@ -21,7 +21,7 @@ const deviceStates = {};
 
 // Enhanced log helper function that logs to both console and file
 function log(message, level = 'INFO') {
-    const timestamp = new Date().toISOString();
+    const timestamp = new Date().toLocaleString();
     const logPrefix = `[${timestamp}] [${level}]`;
     const logMessage = `${logPrefix} ${message}`;
 
@@ -39,9 +39,9 @@ function log(message, level = 'INFO') {
 // Log helper function
 function logToFile(message, level = 'INFO') {
     try {
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+        const today = new Date().toLocaleDateString().replace(/\//g, '-');
         const logFile = path.join(LOG_DIR, `switchbot-api-${today}.log`);
-        const timestamp = new Date().toISOString();
+        const timestamp = new Date().toLocaleString();
         const logPrefix = `[${timestamp}] [${level}]`;
         const logMessage = `${logPrefix} ${message}\n`;
         fs.appendFileSync(logFile, logMessage);

@@ -18,9 +18,9 @@ if (!fs.existsSync(LOG_DIR)) {
 // Log helper function
 function logToFile(message, level = 'INFO') {
     try {
-        const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
+        const today = new Date().toLocaleDateString().replace(/\//g, '-');
         const logFile = path.join(LOG_DIR, `switchbot-api-${today}.log`);
-        const timestamp = new Date().toISOString();
+        const timestamp = new Date().toLocaleString();
         const logPrefix = `[${timestamp}] [${level}]`;
         const logMessage = `${logPrefix} ${message}\n`;
         fs.appendFileSync(logFile, logMessage);
@@ -156,7 +156,7 @@ class SwitchbotAccessory {
     }
 
     async setState(value) {
-        const timestamp = new Date().toISOString();
+        const timestamp = new Date().toLocaleString();
         this.log.info(`${this.logPrefix}[${timestamp}] Setting switch state to ${value ? 'ON' : 'OFF'}`);
         logToFile(`${this.logPrefix}[${timestamp}] Setting switch state to ${value ? 'ON' : 'OFF'}`);
 
@@ -273,7 +273,7 @@ class SwitchbotAccessory {
                 }
 
                 // 增強的日誌輸出
-                const completeTimestamp = new Date().toISOString();
+                const completeTimestamp = new Date().toLocaleString();
                 this.log.debug(`${this.logPrefix}[${completeTimestamp}] ${commandType} command completed`);
                 this.log.debug(`${this.logPrefix}DEBUG: Command result: ${JSON.stringify(result)}`);
                 this.log.debug(`${this.logPrefix}Updated state: ${this.currentState ? 'ON' : 'OFF'}`);
@@ -294,7 +294,7 @@ class SwitchbotAccessory {
                     this.log.debug(`${this.logPrefix}Auto-off scheduled in ${this.autoOffDelay} second(s)`);
                     logToFile(`${this.logPrefix}Auto-off scheduled in ${this.autoOffDelay} second(s)`, 'DEBUG');
                     setTimeout(() => {
-                        const autoOffTimestamp = new Date().toISOString();
+                        const autoOffTimestamp = new Date().toLocaleString();
                         this.log.debug(`${this.logPrefix}[${autoOffTimestamp}] Auto-off triggered`);
                         logToFile(`${this.logPrefix}[${autoOffTimestamp}] Auto-off triggered`, 'DEBUG');
                         this.currentState = false; // Update tracked state

@@ -17,24 +17,24 @@
 
 Homebridge plugin for SwitchBot devices using direct BLE (Bluetooth Low Energy) connections. Control your SwitchBot devices directly through HomeKit without requiring the SwitchBot Hub or cloud connection.
 
-## 🔥 Features
+## Features
 
-- **Direct BLE Control**: No SwitchBot Hub or internet connection required
-- **Fast Response**: Direct Bluetooth connection means faster response times
-- **Multiple Modes**: Supports both switch (on/off) and press (momentary) modes
-- **Child Bridge Support**: Improved stability with isolated process
-- **Auto-off Function**: Automatically turns off after configurable delay
-- **Detailed Logging**: Debug mode for troubleshooting
-- **Multiple Device Support**: Control multiple SwitchBot devices simultaneously
+- Direct BLE Control: No SwitchBot Hub or internet connection required
+- Fast Response: Direct Bluetooth connection means faster response times
+- Multiple Modes: Supports both switch (on/off) and press (momentary) modes
+- Child Bridge Support: Improved stability with isolated process
+- Auto-off Function: Automatically turns off after configurable delay
+- Detailed Logging: Debug mode for troubleshooting
+- Multiple Device Support: Control multiple SwitchBot devices simultaneously
 
-## 📋 Requirements
+## Requirements
 
 - Raspberry Pi, Mac, or Linux system with Bluetooth support
 - Node.js v14 or later
 - Homebridge v1.3.5 or later
 - Bluetooth 4.0+ adapter with BLE support
 
-## 🚀 Installation
+## Installation
 
 ### Option 1: Install through Homebridge UI
 
@@ -49,7 +49,7 @@ Homebridge plugin for SwitchBot devices using direct BLE (Bluetooth Low Energy) 
 npm install -g homebridge-switchbot-ble
 ```
 
-## ⚙️ Configuration
+## Configuration
 
 You can use this plugin in two modes:
 
@@ -74,7 +74,7 @@ Add this to the `platforms` section of your Homebridge `config.json`:
         "name": "Bedroom Light",
         "deviceId": "yy:yy:yy:yy:yy:yy",
         "mode": "switch",
-  "autoOff": true,
+        "autoOff": true,
         "autoOffDelay": 2
       }
     ],
@@ -102,7 +102,7 @@ Add this to the `accessories` section of your Homebridge `config.json`:
 ]
 ```
 
-## 📝 Configuration Options
+## Configuration Options
 
 | Parameter      | Type    | Default             | Description                                              |
 |----------------|---------|---------------------|----------------------------------------------------------|
@@ -114,7 +114,7 @@ Add this to the `accessories` section of your Homebridge `config.json`:
 | `debug`        | Boolean | false               | Enable detailed logging                                  |
 | `configPath`   | String  | ~/.switchbot.config | Path to store device configuration                       |
 
-## 🔍 Finding Your SwitchBot's MAC Address
+## Finding Your SwitchBot's MAC Address
 
 You can find your SwitchBot's MAC address using the built-in scan function:
 
@@ -131,7 +131,7 @@ node node_modules/homebridge-switchbot-ble/bot-cmd.mjs scan
 
 This will scan for nearby SwitchBot devices and display their MAC addresses.
 
-## 🚦 Operational Modes
+## Operational Modes
 
 ### Switch Mode (Recommended)
 
@@ -146,23 +146,23 @@ In `press` mode, the device performs a momentary press regardless of the state c
 - Momentary switches
 - Devices that should only receive a trigger, not maintain state
 
-## 🌉 Child Bridge Support
+## Child Bridge Support
 
 For best performance, use the platform version with Child Bridge. This provides:
 
-1. **Better Stability**: Isolated process for Bluetooth operations
-2. **Reduced Interference**: Separates BLE operations from other plugins
-3. **Independent Restart**: Can restart without affecting other accessories
+1. Better Stability: Isolated process for Bluetooth operations
+2. Reduced Interference: Separates BLE operations from other plugins
+3. Independent Restart: Can restart without affecting other accessories
 
 To enable Child Bridge, use the platform configuration with the `_bridge` parameter.
 
 See the [Child Bridge Guide](FIX-CHILD-BRIDGE-GUIDE.md) for detailed setup instructions.
 
-## 🔧 Troubleshooting
+## Troubleshooting
 
 ### Devices Not Responding
 
-1. Ensure your device is within Bluetooth range (usually 10-15 meters)
+1. Make sure your device is within Bluetooth range (usually 10-15 meters)
 2. Verify the device ID (MAC address) is correct
 3. Check that Bluetooth is enabled on your Homebridge server
 4. Try restarting Homebridge using the included script
@@ -191,11 +191,11 @@ Run the included `restart-homebridge.bat` script (Windows) or restart Homebridge
 homebridge -U /your/homebridge/path -I
 ```
 
-## 📊 Logs and Debugging
+## Logs and Debugging
 
-This plugin creates detailed logs for troubleshooting in the `logs` directory. When reporting an issue, please include these logs to help diagnose the problem.
+This plugin creates detailed logs for troubleshooting in the `logs` directory. All log timestamps are now recorded in your system's local time (using new Date().toLocaleString()). When reporting an issue, please include these logs to help diagnose the problem.
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Feel free to open issues or pull requests.
 
@@ -205,11 +205,11 @@ Contributions are welcome! Feel free to open issues or pull requests.
 4. Push to the branch (`git push origin feature/amazing-feature`)
 5. Open a Pull Request
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License - see the LICENSE file for details.
 
-## 🔗 Additional Resources
+## Additional Resources
 
 - [Homebridge Website](https://homebridge.io/)
 - [SwitchBot Developer Page](https://github.com/OpenWonderLabs/SwitchBotAPI)

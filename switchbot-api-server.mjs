@@ -40,7 +40,7 @@ export async function checkAdminRights() {
 
 // 改進的日誌輸出函數
 function logWithTimestamp(level, message) {
-    const timestamp = new Date().toISOString();
+    const timestamp = new Date().toLocaleString();
     let prefix;
 
     switch (level) {
