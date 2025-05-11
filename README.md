@@ -18,7 +18,7 @@
 Homebridge plugin for SwitchBot devices using direct BLE (Bluetooth Low Energy) connections. Control your SwitchBot devices directly through HomeKit without requiring the SwitchBot Hub or cloud connection.
 
 ## Features
-
+- You can also integrate this repo with the MCP server. See the repository: [SwitchBot-MCP-Integration](https://github.com/bruce30709/SwitchBot-MCP-Integration)
 - Direct BLE Control: No SwitchBot Hub or internet connection required
 - Fast Response: Direct Bluetooth connection means faster response times
 - Multiple Modes: Supports both switch (on/off) and press (momentary) modes
