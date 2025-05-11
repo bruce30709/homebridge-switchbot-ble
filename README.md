@@ -26,6 +26,7 @@ Homebridge plugin for SwitchBot devices using direct BLE (Bluetooth Low Energy) 
 - Auto-off Function: Automatically turns off after configurable delay
 - Detailed Logging: Debug mode for troubleshooting
 - Multiple Device Support: Control multiple SwitchBot devices simultaneously
+![image](https://github.com/user-attachments/assets/913cfd87-ab81-4ff2-9467-eff152fd4c43)
 
 ## Requirements
 
