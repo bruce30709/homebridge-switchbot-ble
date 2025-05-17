@@ -31,7 +31,7 @@ Homebridge plugin for SwitchBot devices using direct BLE (Bluetooth Low Energy) 
 ## Requirements
 
 - Raspberry Pi, Mac, or Linux system with Bluetooth support
-- Node.js v14 or later
+- Node.js v18 or later
 - Homebridge v1.3.5 or later
 - Bluetooth 4.0+ adapter with BLE support
 
