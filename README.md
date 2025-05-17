@@ -37,17 +37,25 @@ Homebridge plugin for SwitchBot devices using direct BLE (Bluetooth Low Energy) 
 
 ## Installation
 
-### Option 1: Install through Homebridge UI
+### Option 1: Install through Homebridge UI(Still under applying)
 
 1. Open your Homebridge UI
 2. Go to the "Plugins" tab
 3. Search for "homebridge-switchbot-ble"
 4. Click "Install"
 
-### Option 2: Install via npm
+### Option 2: Install via npm(Test it work)
 
 ```bash
 npm install -g homebridge-switchbot-ble
+```
+### Option 3: Install manuallly(Test it work)
+
+1. Copy the downloaded homebridge-switchbot-ble folder to the same path as the homebridge-XXX.
+
+2. enter the homebridge-switchbot-ble folder and do
+```bash
+npm install
 ```
 
 ## Configuration
