@@ -1,15 +1,15 @@
 {
   "name": "homebridge-switchbot-ble",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "SwitchBot BLE plugin for Homebridge using direct BLE control. All logs use local time (new Date().toLocaleString()).",
   "main": "index.js",
   "scripts": {
+    "postinstall": "node install.js",
     "start": "node switchbot-api-server.mjs",
     "bot": "node bot-cmd.mjs",
     "find": "node bot-cmd.mjs find",
     "scan": "node bot-cmd.mjs scan",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "postinstall": "node install.js",
     "fix-childbridge": "node install.js",
     "fix-config": "node fix-config.js",
     "clean-cache": "clean-homebridge-cache.bat",
@@ -31,7 +31,7 @@
     "smart-home",
     "homebridge-platform"
   ],
-  "author": "",
+  "author": "bruce30709",
   "license": "MIT",
   "dependencies": {
     "node-switchbot": "3.5.0"
