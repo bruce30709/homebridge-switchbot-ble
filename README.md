@@ -2,7 +2,7 @@
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/homebridge/branding/master/logos/homebridge-color-round-stylized.png" height="150">
-  <img src="https://user-images.githubusercontent.com/10909099/149812458-bbecef3b-8d39-449a-9552-7c6d3f9d7b9a.jpg" height="150">
+  <img src="https://github.com/user-attachments/assets/39419cb4-ef1d-4d3d-accb-446c6b647f95" height="150">
 </p>
 
 <span align="center">
@@ -31,23 +31,31 @@ Homebridge plugin for SwitchBot devices using direct BLE (Bluetooth Low Energy) 
 ## Requirements
 
 - Raspberry Pi, Mac, or Linux system with Bluetooth support
-- Node.js v14 or later
+- Node.js v18 or later
 - Homebridge v1.3.5 or later
 - Bluetooth 4.0+ adapter with BLE support
 
 ## Installation
 
-### Option 1: Install through Homebridge UI
+### Option 1: Install through Homebridge UI(Still under applying)
 
 1. Open your Homebridge UI
 2. Go to the "Plugins" tab
 3. Search for "homebridge-switchbot-ble"
 4. Click "Install"
 
-### Option 2: Install via npm
+### Option 2: Install via npm(Test it work)
 
 ```bash
 npm install -g homebridge-switchbot-ble
+```
+### Option 3: Install manuallly(Test it work)
+
+1. Copy the downloaded homebridge-switchbot-ble folder to the same path as the homebridge-XXX.
+
+2. enter the homebridge-switchbot-ble folder and do
+```bash
+npm install
 ```
 
 ## Configuration
@@ -214,4 +222,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - [Homebridge Website](https://homebridge.io/)
 - [SwitchBot Developer Page](https://github.com/OpenWonderLabs/SwitchBotAPI)
-- [Node-SwitchBot Library](https://github.com/futomi/node-switchbot) 
+- [Node-SwitchBot Library](https://github.com/futomi/node-switchbot)
+- [Model Context Protocol](https://github.com/modelcontextprotocol)
