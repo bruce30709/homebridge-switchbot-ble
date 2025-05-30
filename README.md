@@ -222,4 +222,5 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 
 - [Homebridge Website](https://homebridge.io/)
 - [SwitchBot Developer Page](https://github.com/OpenWonderLabs/SwitchBotAPI)
-- [Node-SwitchBot Library](https://github.com/futomi/node-switchbot) 
+- [Node-SwitchBot Library](https://github.com/futomi/node-switchbot)
+- [Model Context Protocol](https://github.com/modelcontextprotocol)
