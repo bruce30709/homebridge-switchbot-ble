@@ -26,6 +26,9 @@ Homebridge plugin for SwitchBot devices using direct BLE (Bluetooth Low Energy) 
 - Auto-off Function: Automatically turns off after configurable delay
 - Detailed Logging: Debug mode for troubleshooting
 - Multiple Device Support: Control multiple SwitchBot devices simultaneously
+- **New! Automatic Status Check**: Periodically check and update device status
+- **New! Battery Monitoring**: Monitor device battery levels (if supported by device)
+
 ![image](https://github.com/user-attachments/assets/913cfd87-ab81-4ff2-9467-eff152fd4c43)
 
 ## Requirements
@@ -77,14 +80,18 @@ Add this to the `platforms` section of your Homebridge `config.json`:
         "deviceId": "xx:xx:xx:xx:xx:xx",
         "mode": "switch",
         "debug": true,
-        "autoOff": false
+        "autoOff": false,
+        "enableStatusCheck": true,
+        "statusCheckInterval": 60
       },
       {
         "name": "Bedroom Light",
         "deviceId": "yy:yy:yy:yy:yy:yy",
         "mode": "switch",
         "autoOff": true,
-        "autoOffDelay": 2
+        "autoOffDelay": 2,
+        "enableStatusCheck": true,
+        "statusCheckInterval": 120
       }
     ],
     "_bridge": {
@@ -106,22 +113,26 @@ Add this to the `accessories` section of your Homebridge `config.json`:
     "name": "Living Room Light",
     "deviceId": "xx:xx:xx:xx:xx:xx",
     "mode": "switch",
-    "debug": true
+    "debug": true,
+    "enableStatusCheck": true,
+    "statusCheckInterval": 60
   }
 ]
 ```
 
 ## Configuration Options
 
-| Parameter      | Type    | Default             | Description                                              |
-|----------------|---------|---------------------|----------------------------------------------------------|
-| `name`         | String  | "SwitchBot"         | Name of the accessory in HomeKit                         |
-| `deviceId`     | String  | -                   | MAC address of the SwitchBot device (required)           |
-| `mode`         | String  | "switch"            | "switch" for ON/OFF control, "press" for momentary press |
-| `autoOff`      | Boolean | false               | Automatically turn off after delay                       |
-| `autoOffDelay` | Number  | 1                   | Delay in seconds before auto-off                         |
-| `debug`        | Boolean | false               | Enable detailed logging                                  |
-| `configPath`   | String  | ~/.switchbot.config | Path to store device configuration                       |
+| Parameter             | Type    | Default             | Description                                              |
+|-----------------------|---------|---------------------|----------------------------------------------------------|
+| `name`                | String  | "SwitchBot"         | Name of the accessory in HomeKit                         |
+| `deviceId`            | String  | -                   | MAC address of the SwitchBot device (required)           |
+| `mode`                | String  | "switch"            | "switch" for ON/OFF control, "press" for momentary press |
+| `autoOff`             | Boolean | false               | Automatically turn off after delay                       |
+| `autoOffDelay`        | Number  | 1                   | Delay in seconds before auto-off                         |
+| `debug`               | Boolean | false               | Enable detailed logging                                  |
+| `configPath`          | String  | ~/.switchbot.config | Path to store device configuration                       |
+| `enableStatusCheck`   | Boolean | false               | Enable periodic device status checks                     |
+| `statusCheckInterval` | Number  | 60                  | Interval in seconds between status checks                |
 
 ## Finding Your SwitchBot's MAC Address
 
@@ -154,6 +165,26 @@ In `press` mode, the device performs a momentary press regardless of the state c
 - Doorbell buttons
 - Momentary switches
 - Devices that should only receive a trigger, not maintain state
+
+## Automatic Status Check
+
+The new status check feature periodically polls your SwitchBot device to:
+
+1. **Verify Actual State**: Detect if the device has been physically operated or controlled by another app
+2. **Update HomeKit**: Automatically update the HomeKit state to match the device's actual state
+3. **Monitor Battery**: Track battery levels for compatible devices
+4. **Improve Reliability**: Ensure the virtual and physical states stay in sync
+
+To enable status checking, set:
+```json
+"enableStatusCheck": true,
+"statusCheckInterval": 60
+```
+
+The `statusCheckInterval` is in seconds. Recommended values:
+- 30-60 seconds for frequently used devices
+- 120-300 seconds for less frequently used devices
+- Lower values provide more responsive updates but increase Bluetooth traffic
 
 ## Child Bridge Support
 
@@ -191,6 +222,8 @@ Enable debug mode by setting `"debug": true` in your device configuration. This 
 | Commands timeout         | Move Homebridge server closer to the device               |
 | Child Bridge not working | See the [Child Bridge Guide](FIX-CHILD-BRIDGE-GUIDE.md)   |
 | Slow response            | Check for Bluetooth interference or try Child Bridge mode |
+| Status not updating      | Increase `debug` and check logs for connection issues     |
+| JSON parse errors        | Try restarting the plugin or check device compatibility   |
 
 ### Clearing Cache
 
@@ -202,7 +235,7 @@ homebridge -U /your/homebridge/path -I
 
 ## Logs and Debugging
 
-This plugin creates detailed logs for troubleshooting in the `logs` directory. All log timestamps are now recorded in your system's local time (using new Date().toLocaleString()). When reporting an issue, please include these logs to help diagnose the problem.
+This plugin creates detailed logs for troubleshooting in the `logs` directory. All log timestamps are now recorded in your system's local time format, matching your region's date and time display preferences. When reporting an issue, please include these logs to help diagnose the problem.
 
 ## Contributing
 
