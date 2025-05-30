@@ -1,0 +1,18 @@
+# Node modules
+node_modules/
+
+# Logs
+logs/
+*.log
+
+# Runtime data
+.DS_Store
+.env
+.idea
+.vs_code
+
+# Local config files
+config.json
+
+# Any other local files you want to preserve
+# Add more items below as needed 
