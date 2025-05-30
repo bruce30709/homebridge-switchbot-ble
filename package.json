@@ -1,6 +1,6 @@
 {
   "name": "homebridge-switchbot-ble",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "SwitchBot BLE plugin for Homebridge using direct BLE control. All logs use local time (new Date().toLocaleString()).",
   "main": "index.js",
   "scripts": {
