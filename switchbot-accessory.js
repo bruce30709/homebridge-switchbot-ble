@@ -20,13 +20,42 @@ function logToFile(message, level = 'INFO') {
     try {
         const today = new Date().toLocaleDateString().replace(/\//g, '-');
         const logFile = path.join(LOG_DIR, `switchbot-api-${today}.log`);
-        const timestamp = new Date().toLocaleString();
-        const logPrefix = `[${timestamp}] [${level}]`;
+
+        // 手动构建与示例完全匹配的格式 [2025/5/30 下午6:20:45][DEBUG]
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = now.getMonth() + 1;
+        const day = now.getDate();
+        const hours = now.getHours();
+        const minutes = now.getMinutes().toString().padStart(2, '0');
+        const seconds = now.getSeconds().toString().padStart(2, '0');
+        const ampm = hours >= 12 ? '下午' : '上午';
+        const hour12 = hours % 12 || 12;
+
+        // 完全匹配示例格式
+        const timestamp = `[${year}/${month}/${day} ${ampm}${hour12}:${minutes}:${seconds}]`;
+        const logPrefix = `${timestamp}[${level}]`;
         const logMessage = `${logPrefix} ${message}\n`;
+
         fs.appendFileSync(logFile, logMessage);
     } catch (err) {
         console.error('Failed to write to log file:', err.message);
     }
+}
+
+// 使用相同的格式创建时间戳
+function formatTimestamp() {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth() + 1;
+    const day = now.getDate();
+    const hours = now.getHours();
+    const minutes = now.getMinutes().toString().padStart(2, '0');
+    const seconds = now.getSeconds().toString().padStart(2, '0');
+    const ampm = hours >= 12 ? '下午' : '上午';
+    const hour12 = hours % 12 || 12;
+
+    return `[${year}/${month}/${day} ${ampm}${hour12}:${minutes}:${seconds}]`;
 }
 
 class SwitchbotAccessory {
@@ -43,9 +72,12 @@ class SwitchbotAccessory {
         this.autoOff = config.autoOff || false;
         this.autoOffDelay = config.autoOffDelay || 1; // seconds
         this.debug = config.debug || false; // 增加debug選項
+        this.enableStatusCheck = config.enableStatusCheck || false;
+        this.statusCheckInterval = config.statusCheckInterval || 60; // seconds, default 60s
 
         // Track current state
         this.currentState = false; // Default to OFF
+        this.statusCheckTimer = null; // 用于存储定时器句柄
 
         // Child Bridge 相關配置
         this.logPrefix = `[${this.name}] `;
@@ -102,6 +134,13 @@ class SwitchbotAccessory {
             logToFile(`${this.logPrefix}Debug mode: ON`);
             this.logDeviceDetails();
         }
+
+        // 如果启用了状态检查，开始定时检查
+        if (this.enableStatusCheck && this.deviceId) {
+            this.startStatusCheckTimer();
+            this.log.info(`${this.logPrefix}Automatic status check enabled, interval: ${this.statusCheckInterval}s`);
+            logToFile(`${this.logPrefix}Automatic status check enabled, interval: ${this.statusCheckInterval}s`);
+        }
     }
 
     // 增加詳細設備信息日誌
@@ -113,6 +152,8 @@ class SwitchbotAccessory {
         this.log.debug(`${this.logPrefix}  Auto Off: ${this.autoOff}`);
         this.log.debug(`${this.logPrefix}  Auto Off Delay: ${this.autoOffDelay}s`);
         this.log.debug(`${this.logPrefix}  Debug Mode: ${this.debug}`);
+        this.log.debug(`${this.logPrefix}  Status Check: ${this.enableStatusCheck}`);
+        this.log.debug(`${this.logPrefix}  Status Check Interval: ${this.statusCheckInterval}s`);
         this.log.debug(`${this.logPrefix}  Current State: ${this.currentState ? 'ON' : 'OFF'}`);
 
         // Also log to file
@@ -123,6 +164,8 @@ class SwitchbotAccessory {
         logToFile(`${this.logPrefix}  Auto Off: ${this.autoOff}`);
         logToFile(`${this.logPrefix}  Auto Off Delay: ${this.autoOffDelay}s`);
         logToFile(`${this.logPrefix}  Debug Mode: ${this.debug}`);
+        logToFile(`${this.logPrefix}  Status Check: ${this.enableStatusCheck}`);
+        logToFile(`${this.logPrefix}  Status Check Interval: ${this.statusCheckInterval}s`);
         logToFile(`${this.logPrefix}  Current State: ${this.currentState ? 'ON' : 'OFF'}`);
     }
 
@@ -156,9 +199,9 @@ class SwitchbotAccessory {
     }
 
     async setState(value) {
-        const timestamp = new Date().toLocaleString();
-        this.log.info(`${this.logPrefix}[${timestamp}] Setting switch state to ${value ? 'ON' : 'OFF'}`);
-        logToFile(`${this.logPrefix}[${timestamp}] Setting switch state to ${value ? 'ON' : 'OFF'}`);
+        const setStateTime = formatTimestamp();
+        this.log.info(`${this.logPrefix}${setStateTime} Setting switch state to ${value ? 'ON' : 'OFF'}`);
+        logToFile(`${this.logPrefix}Setting switch state to ${value ? 'ON' : 'OFF'}`);
 
         // 增加詳細調試日誌
         this.log.debug(`${this.logPrefix}DEBUG: setState called with value=${value}`);
@@ -273,12 +316,19 @@ class SwitchbotAccessory {
                 }
 
                 // 增強的日誌輸出
-                const completeTimestamp = new Date().toLocaleString();
-                this.log.debug(`${this.logPrefix}[${completeTimestamp}] ${commandType} command completed`);
+                const commandCompleteTime = formatTimestamp();
+                this.log.debug(`${this.logPrefix}${commandCompleteTime} ${commandType} command completed`);
                 this.log.debug(`${this.logPrefix}DEBUG: Command result: ${JSON.stringify(result)}`);
                 this.log.debug(`${this.logPrefix}Updated state: ${this.currentState ? 'ON' : 'OFF'}`);
-                logToFile(`${this.logPrefix}[${completeTimestamp}] ${commandType} command completed`, 'DEBUG');
-                logToFile(`${this.logPrefix}DEBUG: Command result: ${JSON.stringify(result)}`, 'DEBUG');
+                logToFile(`${this.logPrefix}${commandType} command completed`, 'DEBUG');
+
+                // 确保安全处理JSON结果
+                try {
+                    logToFile(`${this.logPrefix}DEBUG: Command result: ${JSON.stringify(result)}`, 'DEBUG');
+                } catch (jsonError) {
+                    logToFile(`${this.logPrefix}DEBUG: Command result: [Unable to stringify result: ${jsonError.message}]`, 'ERROR');
+                }
+
                 logToFile(`${this.logPrefix}Updated state: ${this.currentState ? 'ON' : 'OFF'}`, 'STATE');
 
                 if (result && result.success) {
@@ -294,9 +344,9 @@ class SwitchbotAccessory {
                     this.log.debug(`${this.logPrefix}Auto-off scheduled in ${this.autoOffDelay} second(s)`);
                     logToFile(`${this.logPrefix}Auto-off scheduled in ${this.autoOffDelay} second(s)`, 'DEBUG');
                     setTimeout(() => {
-                        const autoOffTimestamp = new Date().toLocaleString();
-                        this.log.debug(`${this.logPrefix}[${autoOffTimestamp}] Auto-off triggered`);
-                        logToFile(`${this.logPrefix}[${autoOffTimestamp}] Auto-off triggered`, 'DEBUG');
+                        const autoOffTime = formatTimestamp();
+                        this.log.debug(`${this.logPrefix}${autoOffTime} Auto-off triggered`);
+                        logToFile(`${this.logPrefix}Auto-off triggered`, 'DEBUG');
                         this.currentState = false; // Update tracked state
                         logToFile(`${this.logPrefix}State updated to: OFF (auto-off)`, 'STATE');
                         this.switchService.updateCharacteristic(this.Characteristic.On, false);
@@ -404,9 +454,120 @@ class SwitchbotAccessory {
         });
     }
 
+    // 添加启动定时器的函数
+    startStatusCheckTimer() {
+        // 清除已有的定时器
+        if (this.statusCheckTimer) {
+            clearInterval(this.statusCheckTimer);
+        }
+
+        // 确保直接记录而不是通过debugLog方法
+        this.log.info(`${this.logPrefix}Status check timer started with interval ${this.statusCheckInterval}s`);
+        logToFile(`${this.logPrefix}Status check timer started with interval ${this.statusCheckInterval}s`);
+
+        // 设置新定时器
+        this.statusCheckTimer = setInterval(() => {
+            this.checkDeviceStatus();
+        }, this.statusCheckInterval * 1000);
+    }
+
+    // 停止定时器
+    stopStatusCheckTimer() {
+        if (this.statusCheckTimer) {
+            clearInterval(this.statusCheckTimer);
+            this.statusCheckTimer = null;
+            this.log.info(`${this.logPrefix}Status check timer stopped`);
+            logToFile(`${this.logPrefix}Status check timer stopped`);
+        }
+    }
+
+    // 设备状态检查函数
+    async checkDeviceStatus() {
+        if (!this.deviceId) {
+            return;
+        }
+
+        const statusCheckTime = formatTimestamp();
+        // 修改为总是记录状态检查，不依赖debug模式
+        this.log.info(`${this.logPrefix}${statusCheckTime} Running scheduled status check for device: ${this.deviceId}`);
+        logToFile(`${this.logPrefix}Running scheduled status check for device: ${this.deviceId}`);
+
+        try {
+            // 获取设备状态
+            const status = await SwitchBotAPI.getBotStatus(this.deviceId);
+
+            // 确保安全处理JSON
+            let statusStr = "Unknown";
+            try {
+                statusStr = JSON.stringify(status);
+                this.debugLog(`Status check result: ${statusStr}`);
+            } catch (jsonError) {
+                this.log.error(`Failed to stringify status: ${jsonError.message}`);
+                logToFile(`${this.logPrefix}Failed to stringify status: ${jsonError.message}`, 'ERROR');
+            }
+
+            // 如果获取到了有效状态
+            if (status && status.state) {
+                const deviceIsOn = status.state === 'ON';
+
+                // 无论状态是否变化，都记录当前状态
+                this.debugLog(`Current device state: ${deviceIsOn ? 'ON' : 'OFF'}, HomeKit state: ${this.currentState ? 'ON' : 'OFF'}`);
+                logToFile(`${this.logPrefix}Current device state: ${deviceIsOn ? 'ON' : 'OFF'}, HomeKit state: ${this.currentState ? 'ON' : 'OFF'}`, 'DEBUG');
+
+                // 如果状态不同，更新HomeKit
+                if (this.currentState !== deviceIsOn) {
+                    this.log.info(`${this.logPrefix}Device state changed externally: ${deviceIsOn ? 'ON' : 'OFF'}`);
+                    logToFile(`${this.logPrefix}Device state changed externally: ${deviceIsOn ? 'ON' : 'OFF'}`, 'STATE');
+
+                    // 更新本地状态
+                    this.currentState = deviceIsOn;
+
+                    // 更新HomeKit界面
+                    this.switchService.updateCharacteristic(Characteristic.On, deviceIsOn);
+
+                    this.log.info(`${this.logPrefix}Updated HomeKit state to match device: ${deviceIsOn ? 'ON' : 'OFF'}`);
+                    logToFile(`${this.logPrefix}Updated HomeKit state to match device: ${deviceIsOn ? 'ON' : 'OFF'}`, 'STATE');
+                } else {
+                    // 状态未变化，记录稳定状态
+                    this.debugLog(`Device state unchanged, remains: ${deviceIsOn ? 'ON' : 'OFF'}`);
+                    logToFile(`${this.logPrefix}Device state unchanged, remains: ${deviceIsOn ? 'ON' : 'OFF'}`, 'STATE');
+                }
+
+                // 记录额外设备信息（如果有）
+                if (status.battery) {
+                    this.debugLog(`Device battery: ${status.battery}%`);
+                    logToFile(`${this.logPrefix}Device battery: ${status.battery}%`, 'INFO');
+                }
+
+                if (status.mode) {
+                    this.debugLog(`Device mode: ${status.mode}`);
+                    logToFile(`${this.logPrefix}Device mode: ${status.mode}`, 'INFO');
+                }
+            } else {
+                this.log.warn(`${this.logPrefix}Status check completed but no valid state returned`);
+                logToFile(`${this.logPrefix}Status check completed but no valid state returned`, 'WARN');
+
+                if (status && status.error) {
+                    this.log.warn(`${this.logPrefix}Status check error: ${status.error}`);
+                    logToFile(`${this.logPrefix}Status check error: ${status.error}`, 'WARN');
+                }
+            }
+        } catch (error) {
+            this.log.error(`${this.logPrefix}Error checking device status: ${error.message}`);
+            logToFile(`${this.logPrefix}Error checking device status: ${error.message}`, 'ERROR');
+        }
+    }
+
     getServices() {
+        // 当插件停止时清除定时器
+        this.api.on('shutdown', () => {
+            this.stopStatusCheckTimer();
+            this.log.info(`${this.logPrefix}Plugin shutting down, stopped status check timer`);
+            logToFile(`${this.logPrefix}Plugin shutting down, stopped status check timer`);
+        });
+
         return [this.informationService, this.switchService];
     }
 }
 
-module.exports = SwitchbotAccessory; 
+module.exports = SwitchbotAccessory;

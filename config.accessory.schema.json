@@ -1,0 +1,205 @@
+{
+    "pluginAlias": "SwitchbotBLE",
+    "pluginType": "accessory",
+    "headerDisplay": "Individual SwitchBot accessory configuration",
+    "footerDisplay": "For more information, see the [GitHub repository](https://github.com/bruce30709/homebridge-switchbot-ble).",
+    "schema": {
+        "type": "object",
+        "properties": {
+            "name": {
+                "title": "Name",
+                "type": "string",
+                "required": true,
+                "description": "Name of your SwitchBot in HomeKit"
+            },
+            "deviceId": {
+                "title": "Device ID (MAC Address)",
+                "type": "string",
+                "required": true,
+                "description": "MAC Address of your SwitchBot device (e.g., aa:bb:cc:dd:ee:ff)"
+            },
+            "mode": {
+                "title": "Operation Mode",
+                "type": "string",
+                "default": "switch",
+                "oneOf": [
+                    {
+                        "title": "Switch (ON/OFF)",
+                        "enum": [
+                            "switch"
+                        ]
+                    },
+                    {
+                        "title": "Press (Momentary)",
+                        "enum": [
+                            "press"
+                        ]
+                    }
+                ],
+                "description": "Switch mode for ON/OFF control, Press mode for momentary button press"
+            },
+            "autoOff": {
+                "title": "Auto Off",
+                "type": "boolean",
+                "default": false,
+                "description": "Automatically turn off after delay"
+            },
+            "autoOffDelay": {
+                "title": "Auto Off Delay",
+                "type": "integer",
+                "default": 1,
+                "oneOf": [
+                    {
+                        "title": "1 second",
+                        "enum": [
+                            1
+                        ]
+                    },
+                    {
+                        "title": "2 seconds",
+                        "enum": [
+                            2
+                        ]
+                    },
+                    {
+                        "title": "3 seconds",
+                        "enum": [
+                            3
+                        ]
+                    },
+                    {
+                        "title": "5 seconds",
+                        "enum": [
+                            5
+                        ]
+                    },
+                    {
+                        "title": "10 seconds",
+                        "enum": [
+                            10
+                        ]
+                    },
+                    {
+                        "title": "30 seconds",
+                        "enum": [
+                            30
+                        ]
+                    },
+                    {
+                        "title": "1 minute",
+                        "enum": [
+                            60
+                        ]
+                    },
+                    {
+                        "title": "2 minutes",
+                        "enum": [
+                            120
+                        ]
+                    }
+                ],
+                "description": "Select how long to wait before auto-off"
+            },
+            "enableStatusCheck": {
+                "title": "Enable Status Check",
+                "type": "boolean",
+                "default": false,
+                "description": "Periodically check device status and update HomeKit"
+            },
+            "statusCheckInterval": {
+                "title": "Status Check Interval",
+                "type": "integer",
+                "default": 60,
+                "oneOf": [
+                    {
+                        "title": "10 seconds",
+                        "enum": [
+                            10
+                        ]
+                    },
+                    {
+                        "title": "30 seconds",
+                        "enum": [
+                            30
+                        ]
+                    },
+                    {
+                        "title": "1 minute",
+                        "enum": [
+                            60
+                        ]
+                    },
+                    {
+                        "title": "2 minutes",
+                        "enum": [
+                            120
+                        ]
+                    },
+                    {
+                        "title": "5 minutes",
+                        "enum": [
+                            300
+                        ]
+                    },
+                    {
+                        "title": "10 minutes",
+                        "enum": [
+                            600
+                        ]
+                    },
+                    {
+                        "title": "15 minutes",
+                        "enum": [
+                            900
+                        ]
+                    },
+                    {
+                        "title": "30 minutes",
+                        "enum": [
+                            1800
+                        ]
+                    },
+                    {
+                        "title": "1 hour",
+                        "enum": [
+                            3600
+                        ]
+                    }
+                ],
+                "description": "Select how often to check device status"
+            },
+            "debug": {
+                "title": "Debug Mode",
+                "type": "boolean",
+                "default": false,
+                "description": "Enable detailed logging for this device"
+            }
+        }
+    },
+    "form": [
+        "name",
+        "deviceId",
+        "mode",
+        {
+            "key": "autoOff",
+            "description": "For momentary switches or timed operation"
+        },
+        {
+            "key": "autoOffDelay",
+            "condition": {
+                "functionBody": "return model.autoOff === true;"
+            }
+        },
+        {
+            "key": "enableStatusCheck",
+            "description": "Periodically update HomeKit with actual device state"
+        },
+        {
+            "key": "statusCheckInterval",
+            "condition": {
+                "functionBody": "return model.enableStatusCheck === true;"
+            }
+        },
+        "debug"
+    ]
+}

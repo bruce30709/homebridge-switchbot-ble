@@ -178,6 +178,11 @@ class SwitchbotController {
         // Track state - default to OFF to avoid triggering commands on init
         this.currentState = false;
 
+        // 添加状态检查相关配置
+        this.enableStatusCheck = config.enableStatusCheck || false;
+        this.statusCheckInterval = config.statusCheckInterval || 60; // seconds, default 60s
+        this.statusCheckTimer = null; // 用于存储定时器句柄
+
         // Get service and characteristic references
         this.Service = this.api.hap.Service;
         this.Characteristic = this.api.hap.Characteristic;
@@ -190,6 +195,20 @@ class SwitchbotController {
 
         this.log.debug(`${this.logPrefix}SwitchbotController initialized`);
         logToFile(`${this.logPrefix}SwitchbotController initialized`, 'CONTROLLER');
+
+        // 如果启用了状态检查，开始定时检查
+        if (this.enableStatusCheck && this.deviceId) {
+            this.startStatusCheckTimer();
+            this.log.info(`${this.logPrefix}Automatic status check enabled, interval: ${this.statusCheckInterval}s`);
+            logToFile(`${this.logPrefix}Automatic status check enabled, interval: ${this.statusCheckInterval}s`);
+        }
+
+        // 当插件停止时清除定时器
+        this.api.on('shutdown', () => {
+            this.stopStatusCheckTimer();
+            this.log.info(`${this.logPrefix}Plugin shutting down, stopped status check timer`);
+            logToFile(`${this.logPrefix}Plugin shutting down, stopped status check timer`);
+        });
     }
 
     configureServices() {
@@ -348,19 +367,76 @@ class SwitchbotController {
 
                 if (stdout) {
                     try {
-                        // Try to parse status info, extract JSON part
+                        // 尝试解析状态信息，提取JSON部分
                         this.log.debug(`${this.logPrefix}Device status query result: ${stdout}`);
                         logToFile(`${this.logPrefix}Device status query result: ${stdout}`, 'STATE');
 
-                        // Use regex to extract JSON part from output
-                        const jsonMatch = stdout.match(/(\{[\s\S]*\})/);
-                        if (jsonMatch && jsonMatch[1]) {
-                            // Found JSON part
-                            const jsonString = jsonMatch[1];
-                            const statusData = JSON.parse(jsonString);
+                        // 使用更可靠的方法提取JSON
+                        let statusData;
+                        try {
+                            // 首先尝试直接解析整个输出
+                            statusData = JSON.parse(stdout.trim());
+                        } catch (initialError) {
+                            // 如果直接解析失败，尝试找到并提取JSON对象
+                            const jsonMatch = stdout.match(/(\{[\s\S]*?\})/);
+                            if (jsonMatch && jsonMatch[1]) {
+                                try {
+                                    statusData = JSON.parse(jsonMatch[1]);
+                                } catch (nestedError) {
+                                    // 如果仍然解析失败，记录详细错误
+                                    this.log.error(`${this.logPrefix}Failed to parse extracted JSON: ${nestedError.message}`);
+                                    logToFile(`${this.logPrefix}Failed to parse extracted JSON: ${nestedError.message}`, 'ERROR');
+                                    logToFile(`${this.logPrefix}Extracted content: ${jsonMatch[1]}`, 'ERROR');
+                                    throw nestedError;
+                                }
+                            } else {
+                                this.log.error(`${this.logPrefix}No valid JSON object found in output`);
+                                logToFile(`${this.logPrefix}No valid JSON object found in output`, 'ERROR');
+                                throw new Error('No valid JSON object found');
+                            }
+                        }
 
-                            this.log.info(`${this.logPrefix}Successfully parsed device status: ${jsonString}`);
-                            logToFile(`${this.logPrefix}Successfully parsed device status: ${jsonString}`, 'STATE');
+                        if (statusData) {
+                            // 安全地将对象转回字符串用于日志
+                            let jsonString;
+                            try {
+                                jsonString = JSON.stringify(statusData);
+                                this.log.info(`${this.logPrefix}Successfully parsed device status: ${jsonString}`);
+                                logToFile(`${this.logPrefix}Successfully parsed device status: ${jsonString}`, 'STATE');
+                            } catch (stringifyError) {
+                                this.log.warn(`${this.logPrefix}Could not stringify parsed data: ${stringifyError.message}`);
+                                logToFile(`${this.logPrefix}Could not stringify parsed data: ${stringifyError.message}`, 'WARNING');
+                            }
+
+                            // 获取设备当前状态
+                            let deviceIsOn = false;
+                            // 检查并处理多种可能的状态格式
+                            if (statusData.hasOwnProperty('isOn')) {
+                                // 直接使用isOn属性
+                                deviceIsOn = statusData.isOn === true;
+                                this.log.debug(`${this.logPrefix}Using isOn property: ${deviceIsOn}`);
+                            } else if (statusData.hasOwnProperty('state')) {
+                                // 如果state是布尔值
+                                if (typeof statusData.state === 'boolean') {
+                                    deviceIsOn = statusData.state;
+                                    this.log.debug(`${this.logPrefix}Using state as boolean: ${deviceIsOn}`);
+                                }
+                                // 如果state是字符串
+                                else if (typeof statusData.state === 'string') {
+                                    deviceIsOn = (statusData.state === 'ON' || statusData.state === 'on');
+                                    this.log.debug(`${this.logPrefix}Using state as string: ${statusData.state} -> ${deviceIsOn}`);
+                                }
+                            }
+                            // 如果没有isOn或state但有mode，可能是设备特定格式
+                            else if (statusData.hasOwnProperty('mode') && typeof statusData.mode === 'boolean') {
+                                // 有些设备用mode表示开关状态
+                                deviceIsOn = statusData.mode;
+                                this.log.debug(`${this.logPrefix}Using mode as state: ${deviceIsOn}`);
+                            }
+
+                            // 记录解析结果
+                            this.log.info(`${this.logPrefix}Parsed device state from data: ${deviceIsOn ? 'ON' : 'OFF'}`);
+                            logToFile(`${this.logPrefix}Parsed device state from data: ${deviceIsOn ? 'ON' : 'OFF'}`, 'PARSE');
 
                             // Handle isOn property inversion
                             if (statusData.hasOwnProperty('isOn')) {
@@ -401,6 +477,173 @@ class SwitchbotController {
         } catch (e) {
             this.log.error(`${this.logPrefix}Failed to update characteristic cached state: ${e.message}`);
             logToFile(`${this.logPrefix}Failed to update characteristic cached state: ${e.message}`, 'ERROR');
+        }
+    }
+
+    // 添加启动定时器的函数
+    startStatusCheckTimer() {
+        // 清除已有的定时器
+        if (this.statusCheckTimer) {
+            clearInterval(this.statusCheckTimer);
+        }
+
+        this.log.info(`${this.logPrefix}Status check timer started with interval ${this.statusCheckInterval}s`);
+        logToFile(`${this.logPrefix}Status check timer started with interval ${this.statusCheckInterval}s`);
+
+        // 设置新定时器
+        this.statusCheckTimer = setInterval(() => {
+            this.checkDeviceStatus();
+        }, this.statusCheckInterval * 1000);
+    }
+
+    // 停止定时器
+    stopStatusCheckTimer() {
+        if (this.statusCheckTimer) {
+            clearInterval(this.statusCheckTimer);
+            this.statusCheckTimer = null;
+            this.log.info(`${this.logPrefix}Status check timer stopped`);
+            logToFile(`${this.logPrefix}Status check timer stopped`);
+        }
+    }
+
+    // 设备状态检查函数
+    async checkDeviceStatus() {
+        if (!this.deviceId) {
+            return;
+        }
+
+        const timestamp = new Date().toISOString();
+        this.log.info(`${this.logPrefix}[${timestamp}] Running scheduled status check for device: ${this.deviceId}`);
+        logToFile(`${this.logPrefix}Running scheduled status check for device: ${this.deviceId}`);
+
+        try {
+            const cmdPath = path.join(__dirname, 'bot-status.mjs');
+            const fullCmd = `node "${cmdPath}" ${this.deviceId}`;
+
+            this.log.debug(`${this.logPrefix}Executing state query: ${fullCmd}`);
+            logToFile(`${this.logPrefix}Executing state query: ${fullCmd}`, 'QUERY');
+
+            // 尝试获取设备状态
+            exec(fullCmd, { timeout: 10000 }, (error, stdout, stderr) => {
+                if (error) {
+                    this.log.warn(`${this.logPrefix}Failed to get device state: ${error.message}`);
+                    logToFile(`${this.logPrefix}Failed to get device state: ${error.message}`, 'WARNING');
+                    return;
+                }
+
+                if (stdout) {
+                    try {
+                        // 尝试解析状态信息，提取JSON部分
+                        this.log.debug(`${this.logPrefix}Device status query result: ${stdout}`);
+                        logToFile(`${this.logPrefix}Device status query result: ${stdout}`, 'STATE');
+
+                        // 使用更可靠的方法提取JSON
+                        let statusData;
+                        try {
+                            // 首先尝试直接解析整个输出
+                            statusData = JSON.parse(stdout.trim());
+                        } catch (initialError) {
+                            // 如果直接解析失败，尝试找到并提取JSON对象
+                            const jsonMatch = stdout.match(/(\{[\s\S]*?\})/);
+                            if (jsonMatch && jsonMatch[1]) {
+                                try {
+                                    statusData = JSON.parse(jsonMatch[1]);
+                                } catch (nestedError) {
+                                    // 如果仍然解析失败，记录详细错误
+                                    this.log.error(`${this.logPrefix}Failed to parse extracted JSON: ${nestedError.message}`);
+                                    logToFile(`${this.logPrefix}Failed to parse extracted JSON: ${nestedError.message}`, 'ERROR');
+                                    logToFile(`${this.logPrefix}Extracted content: ${jsonMatch[1]}`, 'ERROR');
+                                    throw nestedError;
+                                }
+                            } else {
+                                this.log.error(`${this.logPrefix}No valid JSON object found in output`);
+                                logToFile(`${this.logPrefix}No valid JSON object found in output`, 'ERROR');
+                                throw new Error('No valid JSON object found');
+                            }
+                        }
+
+                        if (statusData) {
+                            // 安全地将对象转回字符串用于日志
+                            let jsonString;
+                            try {
+                                jsonString = JSON.stringify(statusData);
+                                this.log.info(`${this.logPrefix}Successfully parsed device status: ${jsonString}`);
+                                logToFile(`${this.logPrefix}Successfully parsed device status: ${jsonString}`, 'STATE');
+                            } catch (stringifyError) {
+                                this.log.warn(`${this.logPrefix}Could not stringify parsed data: ${stringifyError.message}`);
+                                logToFile(`${this.logPrefix}Could not stringify parsed data: ${stringifyError.message}`, 'WARNING');
+                            }
+
+                            // 获取设备当前状态
+                            let deviceIsOn = false;
+                            // 检查并处理多种可能的状态格式
+                            if (statusData.hasOwnProperty('isOn')) {
+                                // 直接使用isOn属性
+                                deviceIsOn = statusData.isOn === true;
+                                this.log.debug(`${this.logPrefix}Using isOn property: ${deviceIsOn}`);
+                            } else if (statusData.hasOwnProperty('state')) {
+                                // 如果state是布尔值
+                                if (typeof statusData.state === 'boolean') {
+                                    deviceIsOn = statusData.state;
+                                    this.log.debug(`${this.logPrefix}Using state as boolean: ${deviceIsOn}`);
+                                }
+                                // 如果state是字符串
+                                else if (typeof statusData.state === 'string') {
+                                    deviceIsOn = (statusData.state === 'ON' || statusData.state === 'on');
+                                    this.log.debug(`${this.logPrefix}Using state as string: ${statusData.state} -> ${deviceIsOn}`);
+                                }
+                            }
+                            // 如果没有isOn或state但有mode，可能是设备特定格式
+                            else if (statusData.hasOwnProperty('mode') && typeof statusData.mode === 'boolean') {
+                                // 有些设备用mode表示开关状态
+                                deviceIsOn = statusData.mode;
+                                this.log.debug(`${this.logPrefix}Using mode as state: ${deviceIsOn}`);
+                            }
+
+                            // 记录解析结果
+                            this.log.info(`${this.logPrefix}Parsed device state from data: ${deviceIsOn ? 'ON' : 'OFF'}`);
+                            logToFile(`${this.logPrefix}Parsed device state from data: ${deviceIsOn ? 'ON' : 'OFF'}`, 'PARSE');
+
+                            // 记录当前状态
+                            this.log.debug(`${this.logPrefix}Current device state: ${deviceIsOn ? 'ON' : 'OFF'}, HomeKit state: ${this.currentState ? 'ON' : 'OFF'}`);
+                            logToFile(`${this.logPrefix}Current device state: ${deviceIsOn ? 'ON' : 'OFF'}, HomeKit state: ${this.currentState ? 'ON' : 'OFF'}`, 'DEBUG');
+
+                            // 如果状态不同，更新HomeKit
+                            if (this.currentState !== deviceIsOn) {
+                                this.log.info(`${this.logPrefix}Device state changed externally: ${deviceIsOn ? 'ON' : 'OFF'}`);
+                                logToFile(`${this.logPrefix}Device state changed externally: ${deviceIsOn ? 'ON' : 'OFF'}`, 'STATE');
+
+                                // 更新本地状态
+                                this.currentState = deviceIsOn;
+
+                                // 更新HomeKit界面
+                                this.switchService.updateCharacteristic(this.Characteristic.On, deviceIsOn);
+
+                                this.log.info(`${this.logPrefix}Updated HomeKit state to match device: ${deviceIsOn ? 'ON' : 'OFF'}`);
+                                logToFile(`${this.logPrefix}Updated HomeKit state to match device: ${deviceIsOn ? 'ON' : 'OFF'}`, 'STATE');
+                            } else {
+                                // 状态未变化，记录稳定状态
+                                this.log.debug(`${this.logPrefix}Device state unchanged, remains: ${deviceIsOn ? 'ON' : 'OFF'}`);
+                                logToFile(`${this.logPrefix}Device state unchanged, remains: ${deviceIsOn ? 'ON' : 'OFF'}`, 'STATE');
+                            }
+
+                            // 记录额外设备信息（如果有）
+                            if (statusData.battery) {
+                                this.log.debug(`${this.logPrefix}Device battery: ${statusData.battery}%`);
+                                logToFile(`${this.logPrefix}Device battery: ${statusData.battery}%`, 'INFO');
+                            }
+                        } else {
+                            throw new Error('No valid JSON data found');
+                        }
+                    } catch (parseError) {
+                        this.log.error(`${this.logPrefix}Failed to parse device state: ${parseError.message}`);
+                        logToFile(`${this.logPrefix}Failed to parse device state: ${parseError.message}`, 'ERROR');
+                    }
+                }
+            });
+        } catch (e) {
+            this.log.error(`${this.logPrefix}Error checking device status: ${e.message}`);
+            logToFile(`${this.logPrefix}Error checking device status: ${e.message}`, 'ERROR');
         }
     }
 } 

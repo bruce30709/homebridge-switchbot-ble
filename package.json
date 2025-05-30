@@ -50,5 +50,8 @@
       "url": "https://ko-fi.com/yourusername"
     }
   ],
-  "preferChildBridge": true
+  "preferChildBridge": true,
+  "homebridge": {
+    "pluginAlias": "SwitchbotBLE"
+  }
 }
