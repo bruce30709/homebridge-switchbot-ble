@@ -1,4 +1,4 @@
-# Homebridge SwitchBot BLE Plugin
+![image](https://github.com/user-attachments/assets/39419cb4-ef1d-4d3d-accb-446c6b647f95)# Homebridge SwitchBot BLE Plugin
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/homebridge/branding/master/logos/homebridge-color-round-stylized.png" height="150">
