@@ -2,7 +2,7 @@
 
 <p align="center">
   <img src="https://raw.githubusercontent.com/homebridge/branding/master/logos/homebridge-color-round-stylized.png" height="150">
-  <img src="[https://user-images.githubusercontent.com/10909099/149812458-bbecef3b-8d39-449a-9552-7c6d3f9d7b9a.jpg](https://github.com/user-attachments/assets/39419cb4-ef1d-4d3d-accb-446c6b647f95)" height="150">
+  <img src="https://github.com/user-attachments/assets/39419cb4-ef1d-4d3d-accb-446c6b647f95" height="150">
 </p>
 
 <span align="center">
