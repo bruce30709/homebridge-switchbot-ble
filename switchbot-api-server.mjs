@@ -63,10 +63,13 @@ function logWithTimestamp(level, message) {
     console.log(`${prefix} ${message}`);
 }
 
-export async function scanDevices({ duration = 10000 } = {}) {
+export async function scanDevices({ duration = 10000, targetAddress = null } = {}) {
     let foundDevices = [];
+    let waitPromiseResolve = null;
+    let targetFound = false;
+
     try {
-        logWithTimestamp('info', `Start scanning devices (duration ${duration}ms)...`);
+        logWithTimestamp('info', `Start scanning devices (duration ${duration}ms)${targetAddress ? `, targeting: ${targetAddress}` : ''}...`);
 
         switchbot.onadvertisement = (ad) => {
             if (!foundDevices.find(d => d.address === ad.address)) {
@@ -102,14 +105,33 @@ export async function scanDevices({ duration = 10000 } = {}) {
 
                 foundDevices.push(device);
                 logWithTimestamp('info', `Device found: ${device.address} (${device.type})`);
+
+                // If we have a target address and this device matches, stop scanning early
+                if (targetAddress && device.address.toLowerCase() === targetAddress.toLowerCase()) {
+                    targetFound = true;
+                    logWithTimestamp('info', `Target device found: ${device.address}, stopping scan early`);
+                    if (waitPromiseResolve) {
+                        waitPromiseResolve();
+                    }
+                }
             }
         };
 
         await switchbot.startScan();
         logWithTimestamp('debug', 'Scan started');
 
-        await new Promise(resolve => setTimeout(resolve, duration));
-        logWithTimestamp('debug', 'Scan duration ended');
+        // Wait for either target device found or timeout
+        await new Promise(resolve => {
+            waitPromiseResolve = resolve;
+
+            // Still set a timeout as fallback
+            setTimeout(() => {
+                if (!targetFound) {
+                    logWithTimestamp('debug', 'Scan duration ended without finding target device');
+                }
+                resolve();
+            }, duration);
+        });
 
         await switchbot.stopScan();
         logWithTimestamp('info', `Scan complete, found ${foundDevices.length} devices`);
@@ -145,6 +167,7 @@ export async function getBotStatus(deviceId, { duration = 3000 } = {}) {
     };
 
     let deviceFound = false;
+    let waitPromiseResolve = null;
 
     try {
         // Set advertisement listener
@@ -156,14 +179,31 @@ export async function getBotStatus(deviceId, { duration = 3000 } = {}) {
                     deviceStatus.mode = ad.serviceData.mode ? 'Switch' : 'Press';
                     deviceStatus.battery = ad.serviceData.battery;
                 }
+
+                // Once we found the device, resolve immediately
+                if (waitPromiseResolve) {
+                    logWithTimestamp('info', `Device ${normalizedDeviceId} found, stopping scan early`);
+                    waitPromiseResolve();
+                }
             }
         };
 
         // Start scan
         await switchbot.startScan();
+        logWithTimestamp('info', `Scanning for device ${normalizedDeviceId} (max ${duration}ms)...`);
 
-        // Wait for specified duration
-        await new Promise(resolve => setTimeout(resolve, duration));
+        // Wait for either device found or timeout
+        await new Promise(resolve => {
+            waitPromiseResolve = resolve;
+
+            // Still set a timeout as fallback
+            setTimeout(() => {
+                if (!deviceFound) {
+                    logWithTimestamp('debug', 'Scan duration ended without finding target device');
+                }
+                resolve();
+            }, duration);
+        });
 
         // Stop scan
         await switchbot.stopScan();

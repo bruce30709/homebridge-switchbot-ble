@@ -132,7 +132,7 @@ Examples:
 
 // Scan devices and let user select
 async function scanAndSelect() {
-    console.log('Scanning for nearby SwitchBot devices...');
+    console.log('Scanning for nearby SwitchBot devices... (max 3 seconds)');
     const devices = await SwitchBotAPI.scanDevices({ duration: 3000 });
 
     if (devices.length === 0) {
@@ -175,8 +175,13 @@ async function findDeviceByMac(targetMac) {
 
     const normalizedMac = normalizeMacAddress(targetMac);
     console.log(`Trying to find device: ${targetMac} (normalized: ${normalizedMac})`);
+    console.log('Scanning... (max 3 seconds, will finish early if device found)');
 
-    const devices = await SwitchBotAPI.scanDevices({ duration: 3000 });
+    // Use targeted scan to find device faster
+    const devices = await SwitchBotAPI.scanDevices({
+        duration: 3000,
+        targetAddress: normalizedMac
+    });
 
     if (devices.length === 0) {
         console.log('No SwitchBot devices found');
@@ -233,7 +238,7 @@ async function findDeviceByMac(targetMac) {
 
 // Automatically operate all scanned Bot devices
 async function autoOperateAllBots(operation) {
-    console.log(`Scanning for nearby SwitchBot devices to ${operation === 'on' ? 'turn on' : 'turn off'}...`);
+    console.log(`Scanning for nearby SwitchBot devices to ${operation === 'on' ? 'turn on' : 'turn off'}... (max 3 seconds)`);
     const devices = await SwitchBotAPI.scanDevices({ duration: 3000 });
 
     if (devices.length === 0) {
@@ -253,15 +258,32 @@ async function autoOperateAllBots(operation) {
     // Record successful and failed operations
     const results = {
         success: [],
-        failed: []
+        failed: [],
+        skipped: [] // For devices not in Switch mode
     };
 
     // Perform operation for each device
     for (let i = 0; i < devices.length; i++) {
         const device = devices[i];
-        console.log(`\n[${i + 1}/${devices.length}] ${operation === 'on' ? 'Turning on' : 'Turning off'} device: ${device.address}`);
+        console.log(`\n[${i + 1}/${devices.length}] Checking device: ${device.address}`);
 
+        // Check device mode first
         try {
+            console.log('Checking device mode... (will finish early if device found)');
+            const status = await SwitchBotAPI.getBotStatus(device.address);
+
+            // Skip devices not in Switch mode
+            if (status && status.mode !== 'Switch') {
+                console.log(`⚠ Skipping device ${device.address}: Device is in ${status.mode || 'unknown'} mode, not Switch mode`);
+                results.skipped.push({
+                    address: device.address,
+                    reason: `Device is in ${status.mode || 'unknown'} mode, not Switch mode`
+                });
+                continue;
+            }
+
+            console.log(`[${i + 1}/${devices.length}] ${operation === 'on' ? 'Turning on' : 'Turning off'} device: ${device.address}`);
+
             const result = operation === 'on'
                 ? await SwitchBotAPI.turnOnBot(device.address)
                 : await SwitchBotAPI.turnOffBot(device.address);
@@ -293,11 +315,19 @@ async function autoOperateAllBots(operation) {
     console.log('\nOperation summary:');
     console.log(`✓ Success: ${results.success.length} devices`);
     console.log(`✗ Failed: ${results.failed.length} devices`);
+    console.log(`⚠ Skipped: ${results.skipped.length} devices (not in Switch mode)`);
 
     if (results.failed.length > 0) {
         console.log('\nFailed devices:');
         results.failed.forEach((item, index) => {
             console.log(`  ${index + 1}. ${item.address} - Error: ${item.error}`);
+        });
+    }
+
+    if (results.skipped.length > 0) {
+        console.log('\nSkipped devices (not in Switch mode):');
+        results.skipped.forEach((item, index) => {
+            console.log(`  ${index + 1}. ${item.address} - Reason: ${item.reason}`);
         });
     }
 }
@@ -320,7 +350,7 @@ async function main() {
 
         switch (command.toLowerCase()) {
             case 'scan':
-                console.log('Scanning for nearby SwitchBot devices...');
+                console.log('Scanning for nearby SwitchBot devices... (max 3 seconds)');
                 const devices = await SwitchBotAPI.scanDevices({ duration: 3000 });
 
                 if (devices.length === 0) {
@@ -392,6 +422,7 @@ async function main() {
                 }
 
                 console.log(`Getting device ${targetDeviceId} status...`);
+                console.log('Scanning... (max 3 seconds, will finish early if device found)');
                 const status = await SwitchBotAPI.getBotStatus(targetDeviceId);
                 console.log(formatDeviceStatus(status));
                 closeReadlineIfNeeded();
@@ -443,6 +474,19 @@ async function main() {
                     }
                 }
 
+                // Check device mode before turning on
+                console.log(`Checking device ${targetDeviceId} mode...`);
+                console.log('Scanning... (max 3 seconds, will finish early if device found)');
+                const status = await SwitchBotAPI.getBotStatus(targetDeviceId);
+
+                if (status && status.mode !== 'Switch') {
+                    console.log(`⚠ Cannot turn on device: Device is in ${status.mode || 'unknown'} mode, not Switch mode`);
+                    console.log(`For devices in Press mode, use 'press' command instead of 'on'`);
+                    closeReadlineIfNeeded();
+                    process.exit(1);
+                    break;
+                }
+
                 console.log(`Turning on device ${targetDeviceId}...`);
                 const onResult = await SwitchBotAPI.turnOnBot(targetDeviceId);
                 console.log('✓ Turn on command sent successfully');
@@ -467,6 +511,19 @@ async function main() {
                         process.exit(0);
                         break;
                     }
+                }
+
+                // Check device mode before turning off
+                console.log(`Checking device ${targetDeviceId} mode...`);
+                console.log('Scanning... (max 3 seconds, will finish early if device found)');
+                const status = await SwitchBotAPI.getBotStatus(targetDeviceId);
+
+                if (status && status.mode !== 'Switch') {
+                    console.log(`⚠ Cannot turn off device: Device is in ${status.mode || 'unknown'} mode, not Switch mode`);
+                    console.log(`For devices in Press mode, use 'press' command instead of 'off'`);
+                    closeReadlineIfNeeded();
+                    process.exit(1);
+                    break;
                 }
 
                 console.log(`Turning off device ${targetDeviceId}...`);
