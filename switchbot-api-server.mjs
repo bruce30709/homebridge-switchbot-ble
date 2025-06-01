@@ -221,7 +221,7 @@ export async function getBotStatus(deviceId, { duration = 3000 } = {}) {
 }
 
 // Try to discover device, but do not throw error
-async function tryDiscoverBot(deviceId, quick = true, duration = 1500, maxRetries = 5) {
+async function tryDiscoverBot(deviceId, quick = true, duration = 3000, maxRetries = 5) {
     const normalizedDeviceId = normalizeMacAddress(deviceId);
     if (!normalizedDeviceId) {
         logWithTimestamp('error', 'Invalid device ID');
@@ -365,6 +365,8 @@ async function executeCommand(result, commandName, command, maxRetries = 5) {
     // Try to execute command and retry
     let retryCount = 0;
     let lastError = null;
+    // Use the original discovery duration for wait time between retries
+    const retryWaitTime = 3000; // match the default scan duration (3 seconds)
 
     while (retryCount <= maxRetries) {
         try {
@@ -377,10 +379,40 @@ async function executeCommand(result, commandName, command, maxRetries = 5) {
                 };
             }
 
+            // Check device mode for ON/OFF commands
+            if ((command === 'turnOn' || command === 'turnOff') && bot.id) {
+                // Get current device status to check mode
+                logWithTimestamp('info', `Checking device mode before executing ${commandName} command...`);
+                const deviceId = normalizeMacAddress(bot.id || bot.address);
+                const status = await getBotStatus(deviceId);
+
+                // If device is not in Switch mode, we shouldn't execute ON/OFF commands
+                if (status && status.mode !== 'Switch') {
+                    // If not last retry, continue retrying
+                    if (retryCount < maxRetries) {
+                        logWithTimestamp('warn', `Device ${deviceId} is in ${status.mode || 'unknown'} mode, not Switch mode. Cannot execute ${commandName} command (retry ${retryCount + 1}/${maxRetries})...`);
+                        retryCount++;
+                        await new Promise(resolve => setTimeout(resolve, retryWaitTime));
+                        continue;
+                    } else {
+                        // On last retry, if still not in Switch mode, return with warning
+                        logWithTimestamp('warn', `⚠ ${commandName} command not executed: Device ${deviceId} is in ${status.mode || 'unknown'} mode, not Switch mode (after ${maxRetries} retries)`);
+                        return {
+                            success: false,
+                            commandSent: false,
+                            error: `Device is in ${status.mode || 'unknown'} mode, not Switch mode`,
+                            virtuallyExecuted: false
+                        };
+                    }
+                }
+
+                logWithTimestamp('info', `Device ${deviceId} is in Switch mode, proceeding with ${commandName} command`);
+            }
+
             if (retryCount > 0) {
                 logWithTimestamp('info', `Retry executing ${command} command (attempt ${retryCount})...`);
-                // Wait between retries
-                await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
+                // Use consistent retry wait time matching the discovery duration
+                await new Promise(resolve => setTimeout(resolve, retryWaitTime));
             } else {
                 logWithTimestamp('info', `Executing ${command} command...`);
             }
@@ -419,8 +451,8 @@ async function executeCommand(result, commandName, command, maxRetries = 5) {
                 logWithTimestamp('warn', `${commandName} failed (will retry): ${error.message}`);
                 lastError = error.message;
                 retryCount++;
-                // Wait briefly before retrying
-                await new Promise(resolve => setTimeout(resolve, 500 * retryCount));
+                // Use consistent retry wait time matching the discovery duration
+                await new Promise(resolve => setTimeout(resolve, retryWaitTime));
                 continue;
             }
 
@@ -478,7 +510,7 @@ export async function pressBot(deviceId, maxRetries = 5) {
     logWithTimestamp('info', `Trying to press device: ${deviceId}`);
 
     // Try to discover device, increase retry parameter
-    const result = await tryDiscoverBot(deviceId, true, 1500, maxRetries);
+    const result = await tryDiscoverBot(deviceId, true, 3000, maxRetries);
 
     // Execute press operation
     return executeCommand(result, 'Press', 'press');
@@ -488,8 +520,24 @@ export async function pressBot(deviceId, maxRetries = 5) {
 export async function turnOnBot(deviceId, maxRetries = 5) {
     logWithTimestamp('info', `Trying to turn on device: ${deviceId}`);
 
+    // First check if device is in Switch mode
+    try {
+        const status = await getBotStatus(deviceId);
+        if (status && status.mode !== 'Switch') {
+            logWithTimestamp('warn', `⚠ Cannot turn on device: Device ${deviceId} is in ${status.mode || 'unknown'} mode, not Switch mode`);
+            return {
+                success: false,
+                commandSent: false,
+                error: `Device is in ${status.mode || 'unknown'} mode, not Switch mode`,
+                virtuallyExecuted: false
+            };
+        }
+    } catch (error) {
+        logWithTimestamp('warn', `Error checking device mode: ${error.message}. Will try to proceed anyway.`);
+    }
+
     // Try to discover device, increase retry parameter
-    const result = await tryDiscoverBot(deviceId, true, 1500, maxRetries);
+    const result = await tryDiscoverBot(deviceId, true, 3000, maxRetries);
 
     // Execute turn on operation
     return executeCommand(result, 'Turn On', 'turnOn');
@@ -499,8 +547,24 @@ export async function turnOnBot(deviceId, maxRetries = 5) {
 export async function turnOffBot(deviceId, maxRetries = 5) {
     logWithTimestamp('info', `Trying to turn off device: ${deviceId}`);
 
+    // First check if device is in Switch mode
+    try {
+        const status = await getBotStatus(deviceId);
+        if (status && status.mode !== 'Switch') {
+            logWithTimestamp('warn', `⚠ Cannot turn off device: Device ${deviceId} is in ${status.mode || 'unknown'} mode, not Switch mode`);
+            return {
+                success: false,
+                commandSent: false,
+                error: `Device is in ${status.mode || 'unknown'} mode, not Switch mode`,
+                virtuallyExecuted: false
+            };
+        }
+    } catch (error) {
+        logWithTimestamp('warn', `Error checking device mode: ${error.message}. Will try to proceed anyway.`);
+    }
+
     // Try to discover device, increase retry parameter
-    const result = await tryDiscoverBot(deviceId, true, 1500, maxRetries);
+    const result = await tryDiscoverBot(deviceId, true, 3000, maxRetries);
 
     // Execute turn off operation
     return executeCommand(result, 'Turn Off', 'turnOff');
