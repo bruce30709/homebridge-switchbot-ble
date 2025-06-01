@@ -27,7 +27,7 @@ Homebridge plugin for SwitchBot devices using direct BLE (Bluetooth Low Energy) 
 - Detailed Logging: Debug mode for troubleshooting
 - Multiple Device Support: Control multiple SwitchBot devices simultaneously
 - **New! Automatic Status Check**: Periodically check and update device status
-- **New! Battery Monitoring**: Monitor device battery levels (if supported by device)
+- **New! Mode Verification**: Automatically prevents ON/OFF commands on devices in Press mode
 
 ![image](https://github.com/user-attachments/assets/913cfd87-ab81-4ff2-9467-eff152fd4c43)
 
@@ -166,6 +166,17 @@ In `press` mode, the device performs a momentary press regardless of the state c
 - Momentary switches
 - Devices that should only receive a trigger, not maintain state
 
+### Mode Verification (New!)
+
+The plugin now automatically verifies device mode before executing commands:
+
+- **ON/OFF Commands in Press Mode**: If your device is in Press mode, the plugin will now detect this and prevent ON/OFF commands from being sent, as these are incompatible with Press mode.
+- **Retry Logic**: The system will retry checking device mode several times before giving up, in case the device was temporarily unavailable.
+- **Clear Error Messages**: When an incompatible command is attempted, clear error messages are logged explaining why the command was not executed.
+- **Command Safety**: This prevents inappropriate commands from being sent to your device, improving reliability.
+
+This feature works in both the API layer and the command-line tool, ensuring consistent behavior across all interfaces.
+
 ## Automatic Status Check
 
 The new status check feature periodically polls your SwitchBot device to:
@@ -216,14 +227,25 @@ Enable debug mode by setting `"debug": true` in your device configuration. This 
 
 ### Common Issues
 
-| Problem                  | Solution                                                  |
-|--------------------------|-----------------------------------------------------------|
-| Device not found         | Verify MAC address and ensure device is in range          |
-| Commands timeout         | Move Homebridge server closer to the device               |
-| Child Bridge not working | See the [Child Bridge Guide](FIX-CHILD-BRIDGE-GUIDE.md)   |
-| Slow response            | Check for Bluetooth interference or try Child Bridge mode |
-| Status not updating      | Increase `debug` and check logs for connection issues     |
-| JSON parse errors        | Try restarting the plugin or check device compatibility   |
+| Problem                    | Solution                                                     |
+|----------------------------|--------------------------------------------------------------|
+| Device not found           | Verify MAC address and ensure device is in range             |
+| Commands timeout           | Move Homebridge server closer to the device                  |
+| Child Bridge not working   | See the [Child Bridge Guide](FIX-CHILD-BRIDGE-GUIDE.md)      |
+| Slow response              | Check for Bluetooth interference or try Child Bridge mode    |
+| Status not updating        | Increase `debug` and check logs for connection issues        |
+| JSON parse errors          | Try restarting the plugin or check device compatibility      |
+| "Cannot turn ON/OFF" error | Check if your device is in Press mode instead of Switch mode |
+| Mode mismatch              | Use "press" command for devices in Press mode, not ON/OFF    |
+
+### Mode Mismatch Errors
+
+If you see errors like "Cannot turn on device: Device is in Press mode, not Switch mode", this is expected behavior with the new mode verification feature. The plugin is protecting your device from receiving incompatible commands.
+
+To resolve:
+1. Check your device's physical mode switch (if available)
+2. Update your device configuration to match the actual mode ("press" or "switch")
+3. If you want to toggle a device in Press mode, use the "press" command instead of ON/OFF
 
 ### Clearing Cache
 
@@ -232,6 +254,20 @@ Run the included `restart-homebridge.bat` script (Windows) or restart Homebridge
 ```bash
 homebridge -U /your/homebridge/path -I
 ```
+
+## Advanced Features
+
+### Improved Retry Logic (New in v1.0.5)
+
+The plugin now features enhanced retry logic with several improvements:
+
+- **Consistent Timeouts**: All retry operations now use a consistent 3-second timeout, matching the default scan duration
+- **Mode Checking**: Each retry attempt includes a device mode verification to ensure compatibility
+- **Intelligent Retries**: The system distinguishes between temporary Bluetooth failures and permanent issues
+- **Better Error Messages**: More detailed error messages help troubleshoot connection issues
+- **Optimized Battery Usage**: Proper timeout handling reduces unnecessary Bluetooth operations
+
+These improvements make the plugin more reliable, especially in environments with occasional Bluetooth interference or when devices are at the edge of the connection range.
 
 ## Logs and Debugging
 
