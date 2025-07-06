@@ -1,8 +1,8 @@
 # Homebridge SwitchBot BLE Plugin
 
 <p align="center">
-  <img src="https://raw.githubusercontent.com/homebridge/branding/master/logos/homebridge-color-round-stylized.png" height="150">
-  <img src="https://github.com/user-attachments/assets/39419cb4-ef1d-4d3d-accb-446c6b647f95" height="150">
+  <img src="https://raw.githubusercontent.com/homebridge/branding/master/logos/homebridge-color-round-stylized.png" height="100">
+  <img src="https://github.com/user-attachments/assets/39419cb4-ef1d-4d3d-accb-446c6b647f95" height="100">
 </p>
 
 <span align="center">
