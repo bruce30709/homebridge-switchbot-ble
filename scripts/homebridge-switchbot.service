@@ -1,0 +1,39 @@
+[Unit]
+Description=Homebridge SwitchBot BLE
+After=network-online.target bluetooth.target
+Wants=network-online.target
+Requires=bluetooth.target
+
+[Service]
+Type=simple
+User=homebridge
+Group=homebridge
+ExecStart=/usr/bin/homebridge -I -U /var/lib/homebridge
+Restart=on-failure
+RestartSec=10
+KillMode=process
+StandardOutput=journal
+StandardError=journal
+
+# Environment configuration
+Environment=NODE_ENV=production
+EnvironmentFile=-/etc/default/homebridge
+
+# Security settings
+NoNewPrivileges=true
+PrivateDevices=false
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/homebridge
+
+# Bluetooth capabilities
+AmbientCapabilities=CAP_NET_RAW CAP_NET_ADMIN
+CapabilityBoundingSet=CAP_NET_RAW CAP_NET_ADMIN
+
+# Resource limits for Raspberry Pi
+LimitNOFILE=65536
+MemoryMax=512M
+TasksMax=100
+
+[Install]
+WantedBy=multi-user.target
