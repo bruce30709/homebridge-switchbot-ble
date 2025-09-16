@@ -249,6 +249,24 @@ See the [Child Bridge Guide](FIX-CHILD-BRIDGE-GUIDE.md) for detailed setup instr
 
 ## Troubleshooting
 
+### Quick Diagnostics
+
+Before reporting issues, run our diagnostic tools:
+
+```bash
+# Check system compatibility
+npm run system-check
+
+# Test system performance and get optimization recommendations
+npm run performance-test
+
+# Diagnose Bluetooth issues
+npm run bluetooth-troubleshoot
+
+# Complete health check
+npm run health-check
+```
+
 ### Devices Not Responding
 
 1. Make sure your device is within Bluetooth range (usually 10-15 meters)
@@ -275,6 +293,8 @@ Enable debug mode by setting `"debug": true` in your device configuration. This 
 | JSON parse errors          | Try restarting the plugin or check device compatibility      |
 | "Cannot turn ON/OFF" error | Check if your device is in Press mode instead of Switch mode |
 | Mode mismatch              | Use "press" command for devices in Press mode, not ON/OFF    |
+| Low performance on Pi      | Run `npm run performance-test` for optimization suggestions   |
+| Bluetooth permissions      | Run `npm run bluetooth-troubleshoot` for detailed diagnosis   |
 
 ### Mode Mismatch Errors
 
