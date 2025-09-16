@@ -124,44 +124,83 @@ function checkBluetoothSupport() {
     let hasBluetoothCommand = false;
     let hasBluetoothService = false;
     
-    try {
-        // Check for hciconfig command
-        execSync('which hciconfig', { stdio: 'ignore' });
-        hasBluetoothCommand = true;
-        log('✓ hciconfig command found', 'green');
-        
-        // Try to get Bluetooth adapter info
+    const platform = os.platform();
+    
+    if (platform === 'win32') {
+        // Windows Bluetooth check
         try {
-            const hciOutput = execSync('hciconfig', { encoding: 'utf8', stdio: 'pipe' });
-            if (hciOutput.includes('hci')) {
-                log('✓ Bluetooth adapter detected', 'green');
+            // Check if Windows Bluetooth service is running
+            const winBluetoothCheck = execSync('powershell "Get-Service -Name Bthserv | Select-Object Status"', { encoding: 'utf8', stdio: 'pipe' });
+            if (winBluetoothCheck.includes('Running')) {
+                log('✓ Windows Bluetooth service is running', 'green');
+                hasBluetoothService = true;
             } else {
-                log('⚠ No Bluetooth adapters found', 'yellow');
-                recommendations.push('Ensure Bluetooth adapter is connected and enabled');
+                log('⚠ Windows Bluetooth service is not running', 'yellow');
+                recommendations.push('Start Windows Bluetooth service in Services or Device Manager');
+            }
+            
+            // Check for Bluetooth devices
+            try {
+                const bluetoothDevices = execSync('powershell "Get-PnpDevice -Class Bluetooth"', { encoding: 'utf8', stdio: 'pipe' });
+                if (bluetoothDevices.trim()) {
+                    log('✓ Bluetooth devices detected', 'green');
+                    hasBluetoothCommand = true;
+                } else {
+                    log('⚠ No Bluetooth devices found', 'yellow');
+                    recommendations.push('Ensure Bluetooth adapter is installed and enabled');
+                }
+            } catch (err) {
+                log('⚠ Cannot enumerate Bluetooth devices', 'yellow');
+                recommendations.push('Check Device Manager for Bluetooth adapter status');
             }
         } catch (err) {
-            log('⚠ Cannot access Bluetooth adapter (may need sudo)', 'yellow');
-            recommendations.push('You may need to run as root or configure permissions');
+            log('✗ Cannot check Windows Bluetooth status', 'red');
+            recommendations.push('Install Bluetooth drivers and enable Bluetooth in Windows settings');
         }
-    } catch (err) {
-        log('✗ hciconfig command not found', 'red');
-        recommendations.push('Install bluez package: apt install bluez (Linux) or brew install bluez (macOS)');
-    }
-    
-    // Check for Bluetooth service (Linux)
-    if (os.platform() === 'linux') {
+    } else {
+        // Unix/Linux Bluetooth check
         try {
-            execSync('systemctl is-active bluetooth', { stdio: 'ignore' });
-            hasBluetoothService = true;
-            log('✓ Bluetooth service is active', 'green');
+            // Check for hciconfig command
+            execSync('which hciconfig', { stdio: 'ignore' });
+            hasBluetoothCommand = true;
+            log('✓ hciconfig command found', 'green');
+            
+            // Try to get Bluetooth adapter info
+            try {
+                const hciOutput = execSync('hciconfig', { encoding: 'utf8', stdio: 'pipe' });
+                if (hciOutput.includes('hci')) {
+                    log('✓ Bluetooth adapter detected', 'green');
+                } else {
+                    log('⚠ No Bluetooth adapters found', 'yellow');
+                    recommendations.push('Ensure Bluetooth adapter is connected and enabled');
+                }
+            } catch (err) {
+                log('⚠ Cannot access Bluetooth adapter (may need sudo)', 'yellow');
+                recommendations.push('You may need to run as root or configure permissions');
+            }
         } catch (err) {
-            log('✗ Bluetooth service is not active', 'red');
-            recommendations.push('Enable Bluetooth service: sudo systemctl enable bluetooth && sudo systemctl start bluetooth');
+            log('✗ hciconfig command not found', 'red');
+            recommendations.push('Install bluez package: apt install bluez (Linux) or brew install bluez (macOS)');
+        }
+        
+        // Check for Bluetooth service (Linux)
+        if (platform === 'linux') {
+            try {
+                execSync('systemctl is-active bluetooth', { stdio: 'ignore' });
+                hasBluetoothService = true;
+                log('✓ Bluetooth service is active', 'green');
+            } catch (err) {
+                log('✗ Bluetooth service is not active', 'red');
+                recommendations.push('Enable Bluetooth service: sudo systemctl enable bluetooth && sudo systemctl start bluetooth');
+            }
+        } else {
+            // macOS or other Unix systems
+            hasBluetoothService = true; // Assume service is available
         }
     }
     
     return { 
-        status: hasBluetoothCommand && (hasBluetoothService || os.platform() !== 'linux'),
+        status: hasBluetoothCommand && hasBluetoothService,
         recommendations 
     };
 }
@@ -203,13 +242,30 @@ function checkDiskSpace() {
     
     try {
         let available = 0;
+        const platform = os.platform();
         
-        if (os.platform() === 'linux') {
+        if (platform === 'linux') {
             const dfOutput = execSync('df / --output=avail --block-size=1M | tail -1', { encoding: 'utf8' });
             available = parseInt(dfOutput.trim());
-        } else if (os.platform() === 'darwin') {
+        } else if (platform === 'darwin') {
             const dfOutput = execSync('df / | tail -1 | awk \'{print $4}\'', { encoding: 'utf8' });
             available = Math.round(parseInt(dfOutput.trim()) / 1024); // Convert from KB to MB
+        } else if (platform === 'win32') {
+            // Windows disk space check using PowerShell
+            const psOutput = execSync('powershell "Get-WmiObject -Class Win32_LogicalDisk -Filter \\"DriveType=3\\" | Select-Object Size,FreeSpace | ConvertTo-Json"', { encoding: 'utf8' });
+            try {
+                const diskData = JSON.parse(psOutput);
+                const mainDisk = Array.isArray(diskData) ? diskData[0] : diskData;
+                available = Math.round(mainDisk.FreeSpace / 1024 / 1024); // Convert to MB
+            } catch (parseErr) {
+                // Fallback for Windows
+                const wmic = execSync('wmic logicaldisk get size,freespace /format:csv', { encoding: 'utf8' });
+                const lines = wmic.split('\n').filter(line => line.includes(','));
+                if (lines.length > 1) {
+                    const parts = lines[1].split(',');
+                    available = Math.round(parseInt(parts[1]) / 1024 / 1024); // Convert to MB
+                }
+            }
         }
         
         log(`Available disk space: ${available} MB`, 'blue');
@@ -226,6 +282,7 @@ function checkDiskSpace() {
         }
     } catch (err) {
         log('⚠ Could not check disk space', 'yellow');
+        log(`Error: ${err.message}`, 'yellow');
     }
     
     return { status: true, recommendations };

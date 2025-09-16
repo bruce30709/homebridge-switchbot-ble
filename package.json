@@ -18,10 +18,12 @@
     "test-bridge-win": "test-child-bridge.bat",
     "test-bridge-unix": "bash test-child-bridge.sh",
     "system-check": "node scripts/system-check.js",
-    "rpi-setup": "sudo bash scripts/raspberry-pi-setup.sh",
+    "rpi-setup": "bash scripts/raspberry-pi-setup.sh",
     "install-deps": "npm install --production",
-    "health-check": "node scripts/system-check.js && npm list --depth=0",
-    "bluetooth-troubleshoot": "bash scripts/bluetooth-troubleshoot.sh",
+    "health-check": "node scripts/system-check.js",
+    "health-check-full": "node scripts/system-check.js && npm list --depth=0",
+    "bluetooth-troubleshoot": "node scripts/bluetooth-troubleshoot.js",
+    "bluetooth-troubleshoot-unix": "bash scripts/bluetooth-troubleshoot.sh",
     "performance-test": "node scripts/performance-test.js"
   },
   "engines": {

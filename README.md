@@ -47,6 +47,15 @@ Homebridge plugin for SwitchBot devices using direct BLE (Bluetooth Low Energy) 
 - Sufficient power supply (official Raspberry Pi adapter recommended)
 - MicroSD card with at least 8GB free space
 
+### Windows Specific Requirements
+- Windows 10/11 with built-in or external Bluetooth 4.0+ adapter
+- Bluetooth service enabled in Windows Services
+- PowerShell execution policy allowing scripts (for diagnostics)
+
+### macOS Specific Requirements
+- macOS 10.12+ with built-in or external Bluetooth 4.0+ adapter
+- Xcode Command Line Tools (for native module compilation)
+
 **For Raspberry Pi users**: See our [comprehensive Raspberry Pi setup guide](docs/raspberry-pi-setup.md) for optimized installation and configuration.
 
 ## Installation
@@ -77,20 +86,30 @@ This script will:
 - Set up systemd service
 - Apply performance optimizations
 
-### Option 2: Install through Homebridge UI (Still under applying)
+### Option 2: Windows/macOS/Linux Manual Setup
+
+For Windows, macOS, and other Linux systems, use the standard npm installation:
+
+```bash
+npm install -g homebridge-switchbot-ble
+```
+
+**Windows users**: Ensure Bluetooth is enabled in Windows Settings and that your Bluetooth adapter supports BLE (Bluetooth Low Energy).
+
+### Option 3: Install through Homebridge UI (Still under applying)
 
 1. Open your Homebridge UI
 2. Go to the "Plugins" tab
 3. Search for "homebridge-switchbot-ble"
 4. Click "Install"
 
-### Option 3: Install via npm (Manual)
+### Option 4: Install via npm (Manual)
 
 ```bash
 npm install -g homebridge-switchbot-ble
 ```
 
-### Option 4: Install manually (Test it work)
+### Option 5: Install manually (Test it work)
 
 1. Copy the downloaded homebridge-switchbot-ble folder to the same path as the homebridge-XXX.
 
@@ -295,6 +314,7 @@ Enable debug mode by setting `"debug": true` in your device configuration. This 
 | Mode mismatch              | Use "press" command for devices in Press mode, not ON/OFF    |
 | Low performance on Pi      | Run `npm run performance-test` for optimization suggestions   |
 | Bluetooth permissions      | Run `npm run bluetooth-troubleshoot` for detailed diagnosis   |
+| Windows Bluetooth issues   | Check Windows Bluetooth service and Device Manager           |
 
 ### Mode Mismatch Errors
 

@@ -45,21 +45,25 @@ function checkSystemCompatibility() {
 // Apply Raspberry Pi specific optimizations
 function applyRaspberryPiOptimizations() {
   try {
-    // Check if Bluetooth service is available
-    try {
-      execSync('systemctl is-active bluetooth', { stdio: 'ignore' });
-      console.log(`[${new Date().toLocaleString()}] Bluetooth service is active`);
-    } catch (err) {
-      console.warn(`[${new Date().toLocaleString()}] WARNING: Bluetooth service not active. Run 'sudo systemctl enable bluetooth && sudo systemctl start bluetooth'`);
+    // Check if Bluetooth service is available (Linux only)
+    if (os.platform() === 'linux') {
+      try {
+        execSync('systemctl is-active bluetooth', { stdio: 'ignore' });
+        console.log(`[${new Date().toLocaleString()}] Bluetooth service is active`);
+      } catch (err) {
+        console.warn(`[${new Date().toLocaleString()}] WARNING: Bluetooth service not active. Run 'sudo systemctl enable bluetooth && sudo systemctl start bluetooth'`);
+      }
     }
     
-    // Check Node.js capabilities for Bluetooth
-    try {
-      const nodePath = execSync('which node', { encoding: 'utf8' }).trim();
-      execSync(`getcap ${nodePath}`, { stdio: 'ignore' });
-      console.log(`[${new Date().toLocaleString()}] Node.js Bluetooth capabilities configured`);
-    } catch (err) {
-      console.warn(`[${new Date().toLocaleString()}] WARNING: Node.js may need Bluetooth capabilities. Run as root: 'sudo setcap cap_net_raw+eip \$(which node)'`);
+    // Check Node.js capabilities for Bluetooth (Unix only)
+    if (os.platform() !== 'win32') {
+      try {
+        const nodePath = execSync('which node', { encoding: 'utf8' }).trim();
+        execSync(`getcap ${nodePath}`, { stdio: 'ignore' });
+        console.log(`[${new Date().toLocaleString()}] Node.js Bluetooth capabilities configured`);
+      } catch (err) {
+        console.warn(`[${new Date().toLocaleString()}] WARNING: Node.js may need Bluetooth capabilities. Run as root: 'sudo setcap cap_net_raw+eip \$(which node)'`);
+      }
     }
     
   } catch (error) {

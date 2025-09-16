@@ -25,6 +25,7 @@ function log(message, color = 'reset') {
 
 function isRaspberryPi() {
     try {
+        if (os.platform() !== 'linux') return false;
         const cpuInfo = fs.readFileSync('/proc/cpuinfo', 'utf8');
         return cpuInfo.includes('Raspberry Pi');
     } catch (err) {
@@ -102,7 +103,16 @@ function testMemoryUsage() {
 function testDiskIO() {
     console.log('\n=== Disk I/O Performance Test ===');
     
-    const testFile = '/tmp/homebridge-io-test.tmp';
+    // Use platform-appropriate temp directory
+    const platform = os.platform();
+    let testFile;
+    if (platform === 'win32') {
+        const tempDir = process.env.TEMP || process.env.TMP || 'C:\\temp';
+        testFile = require('path').join(tempDir, 'homebridge-io-test.tmp');
+    } else {
+        testFile = '/tmp/homebridge-io-test.tmp';
+    }
+    
     const testData = Buffer.alloc(1024 * 1024, 'a'); // 1MB of data
     
     try {
@@ -127,7 +137,11 @@ function testDiskIO() {
         let recommendation = '';
         if (writeTime > 100 || readTime > 50) {
             log('⚠ Slow disk I/O detected', 'yellow');
-            recommendation = 'Consider using faster storage (SD card class 10+ for Pi)';
+            if (platform === 'win32') {
+                recommendation = 'Consider using SSD storage or defragmenting disk';
+            } else {
+                recommendation = 'Consider using faster storage (SD card class 10+ for Pi)';
+            }
         } else {
             log('✓ Good disk I/O performance', 'green');
             recommendation = 'Disk performance is adequate';
@@ -144,28 +158,62 @@ function testDiskIO() {
 function testBluetoothAvailability() {
     console.log('\n=== Bluetooth Availability Test ===');
     
-    try {
-        // Test if hciconfig is available
-        execSync('which hciconfig', { stdio: 'ignore' });
-        log('✓ Bluetooth tools available', 'green');
-        
+    const platform = os.platform();
+    
+    if (platform === 'win32') {
+        // Windows Bluetooth check
         try {
-            // Test if Bluetooth adapter is available
-            const hciOutput = execSync('hciconfig', { encoding: 'utf8', stdio: 'pipe' });
-            if (hciOutput.includes('hci')) {
-                log('✓ Bluetooth adapter found', 'green');
-                return { available: true, recommendation: 'Bluetooth hardware is ready' };
+            const serviceStatus = execSync('powershell "Get-Service -Name Bthserv | Select-Object Status"', { encoding: 'utf8' });
+            if (serviceStatus.includes('Running')) {
+                log('✓ Windows Bluetooth service is running', 'green');
+                
+                try {
+                    const devices = execSync('powershell "Get-PnpDevice -Class Bluetooth"', { encoding: 'utf8' });
+                    if (devices.trim()) {
+                        log('✓ Bluetooth devices found', 'green');
+                        return { available: true, recommendation: 'Bluetooth hardware is ready' };
+                    } else {
+                        log('⚠ No Bluetooth devices found', 'yellow');
+                        return { available: false, recommendation: 'Install Bluetooth drivers and check Device Manager' };
+                    }
+                } catch (err) {
+                    log('⚠ Cannot enumerate Bluetooth devices', 'yellow');
+                    return { available: false, recommendation: 'Check Device Manager for Bluetooth adapter' };
+                }
             } else {
-                log('⚠ No Bluetooth adapters found', 'yellow');
-                return { available: false, recommendation: 'Check Bluetooth hardware connection' };
+                log('✗ Windows Bluetooth service not running', 'red');
+                return { available: false, recommendation: 'Start Bluetooth service in Windows services' };
             }
         } catch (err) {
-            log('⚠ Cannot access Bluetooth adapter', 'yellow');
-            return { available: false, recommendation: 'Check Bluetooth permissions and service status' };
+            log('✗ Cannot check Windows Bluetooth', 'red');
+            return { available: false, recommendation: 'Install Bluetooth support and drivers' };
         }
-    } catch (err) {
-        log('✗ Bluetooth tools not installed', 'red');
-        return { available: false, recommendation: 'Install bluez package' };
+    } else {
+        // Unix/Linux/macOS Bluetooth check
+        try {
+            // Test if hciconfig is available
+            execSync('which hciconfig', { stdio: 'ignore' });
+            log('✓ Bluetooth tools available', 'green');
+            
+            try {
+                // Test if Bluetooth adapter is available
+                const hciOutput = execSync('hciconfig', { encoding: 'utf8', stdio: 'pipe' });
+                if (hciOutput.includes('hci')) {
+                    log('✓ Bluetooth adapter found', 'green');
+                    return { available: true, recommendation: 'Bluetooth hardware is ready' };
+                } else {
+                    log('⚠ No Bluetooth adapters found', 'yellow');
+                    return { available: false, recommendation: 'Check Bluetooth hardware connection' };
+                }
+            } catch (err) {
+                log('⚠ Cannot access Bluetooth adapter', 'yellow');
+                return { available: false, recommendation: 'Check Bluetooth permissions and service status' };
+            }
+        } catch (err) {
+            log('✗ Bluetooth tools not installed', 'red');
+            const installCmd = platform === 'darwin' ? 'brew install bluez' : 'apt install bluez';
+            return { available: false, recommendation: `Install bluez package: ${installCmd}` };
+        }
     }
 }
 

@@ -6,8 +6,10 @@
 |---------|-------------|
 | `npm run system-check` | Check system compatibility and requirements |
 | `npm run performance-test` | Analyze system performance and get optimization recommendations |
-| `npm run bluetooth-troubleshoot` | Diagnose Bluetooth connectivity issues |
-| `npm run health-check` | Complete system health check (compatibility + dependencies) |
+| `npm run bluetooth-troubleshoot` | Diagnose Bluetooth connectivity issues (cross-platform) |
+| `npm run bluetooth-troubleshoot-unix` | Diagnose Bluetooth issues (Unix/Linux only) |
+| `npm run health-check` | Complete system health check (compatibility only) |
+| `npm run health-check-full` | Complete system health check (compatibility + dependencies) |
 | `npm run rpi-setup` | Run automated Raspberry Pi setup (requires sudo) |
 
 ## Quick Setup Commands
@@ -44,10 +46,11 @@ npm run performance-test
 | File | Purpose |
 |------|---------|
 | `docs/raspberry-pi-setup.md` | Comprehensive Raspberry Pi setup guide |
-| `scripts/raspberry-pi-setup.sh` | Automated installation script |
-| `scripts/system-check.js` | System compatibility checker |
-| `scripts/bluetooth-troubleshoot.sh` | Bluetooth diagnostic tool |
-| `scripts/performance-test.js` | Performance analysis and optimization tool |
+| `scripts/raspberry-pi-setup.sh` | Automated installation script (Linux/Raspberry Pi) |
+| `scripts/system-check.js` | Cross-platform system compatibility checker |
+| `scripts/bluetooth-troubleshoot.js` | Cross-platform Bluetooth diagnostic tool |
+| `scripts/bluetooth-troubleshoot.sh` | Unix/Linux Bluetooth diagnostic tool |
+| `scripts/performance-test.js` | Cross-platform performance analysis and optimization tool |
 | `scripts/homebridge-switchbot.service` | Systemd service template |
 
 ## Raspberry Pi Optimizations Applied
@@ -77,13 +80,24 @@ npm run performance-test
 
 ## Support Matrix
 
-| Raspberry Pi Model | Support Level | Recommended Settings |
-|-------------------|---------------|---------------------|
+| Platform | Support Level | Recommended Settings |
+|----------|---------------|---------------------|
+| **Raspberry Pi** |  |  |
 | Pi 5 | ✅ Excellent | Default settings |
 | Pi 4 | ✅ Excellent | Default settings |
 | Pi 3B+ | ✅ Good | Extended timeouts |
 | Pi 3B | ✅ Good | Extended timeouts |
 | Pi Zero 2W | ⚠️ Limited | Extended timeouts, reduced concurrent operations |
+| **Windows** |  |  |
+| Windows 11 | ✅ Good | Default settings, ensure Bluetooth LE support |
+| Windows 10 | ✅ Good | Default settings, may need driver updates |
+| **macOS** |  |  |
+| macOS 12+ | ✅ Good | Default settings |
+| macOS 10.12-11 | ✅ Limited | May need Xcode CLI tools |
+| **Linux** |  |  |
+| Ubuntu 20.04+ | ✅ Excellent | Install bluez package |
+| Debian 10+ | ✅ Excellent | Install bluez package |
+| Other distros | ⚠️ Limited | Ensure systemd and bluez support |
 
 ## Performance Features
 
