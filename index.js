@@ -1,6 +1,27 @@
 const path = require('path');
 const { exec } = require('child_process');
 const fs = require('fs');
+const os = require('os');
+
+// System detection
+function detectSystem() {
+    const platform = os.platform();
+    const arch = os.arch();
+    let isRaspberryPi = false;
+    
+    try {
+        if (platform === 'linux') {
+            const cpuInfo = fs.readFileSync('/proc/cpuinfo', 'utf8');
+            isRaspberryPi = cpuInfo.includes('Raspberry Pi');
+        }
+    } catch (err) {
+        // File doesn't exist or can't be read
+    }
+    
+    return { platform, arch, isRaspberryPi };
+}
+
+const systemInfo = detectSystem();
 
 // Create a log directory if it doesn't exist
 const LOG_DIR = path.join(__dirname, 'logs');
@@ -12,12 +33,12 @@ if (!fs.existsSync(LOG_DIR)) {
     }
 }
 
-// Log helper function
+// Enhanced log helper function with system context
 function logToFile(message, level = 'INFO') {
     try {
         const today = new Date().toISOString().split('T')[0]; // YYYY-MM-DD format
         const logFile = path.join(LOG_DIR, `switchbot-api-${today}.log`);
-        const timestamp = new Date().toISOString();
+        const timestamp = new Date().toLocaleString(); // Use local time format
         const logPrefix = `[${timestamp}] [${level}]`;
         const logMessage = `${logPrefix} ${message}\n`;
         fs.appendFileSync(logFile, logMessage);
@@ -42,16 +63,58 @@ class SwitchbotPlatform {
         // Ensure devices are set
         this.devices = this.config.devices || [];
 
+        // Log system information
         this.log.info('SwitchBot BLE Platform initialized');
+        this.log.info(`System: ${systemInfo.platform}/${systemInfo.arch}${systemInfo.isRaspberryPi ? ' (Raspberry Pi)' : ''}`);
+        
         logToFile('SwitchBot BLE Platform initialized', 'PLATFORM');
+        logToFile(`System: ${systemInfo.platform}/${systemInfo.arch}${systemInfo.isRaspberryPi ? ' (Raspberry Pi)' : ''}`, 'SYSTEM');
+        
         this.log.debug(`Configured ${this.devices.length} SwitchBot devices`);
         logToFile(`Configured ${this.devices.length} SwitchBot devices`, 'DEBUG');
+
+        // Apply system-specific optimizations
+        this.applySystemOptimizations();
 
         // When Homebridge is fully launched, discover devices
         this.api.on('didFinishLaunching', () => {
             this.log.debug('Finished launching, discovering accessories...');
             logToFile('Finished launching, discovering accessories...', 'PLATFORM');
             this.discoverDevices();
+        });
+    }
+
+    // Apply system-specific optimizations
+    applySystemOptimizations() {
+        if (systemInfo.isRaspberryPi) {
+            this.log.info('Applying Raspberry Pi optimizations...');
+            logToFile('Applying Raspberry Pi optimizations...', 'OPTIMIZATION');
+            
+            // Apply Raspberry Pi specific timeouts and settings
+            if (!this.config.connectTimeout) {
+                this.config.connectTimeout = 5000; // Longer timeout for Pi
+            }
+            if (!this.config.commandTimeout) {
+                this.config.commandTimeout = 3000;
+            }
+            if (!this.config.retryAttempts) {
+                this.config.retryAttempts = 3;
+            }
+            
+            // Check memory and log warning if low
+            const totalMem = Math.round(os.totalmem() / 1024 / 1024); // MB
+            if (totalMem < 1024) {
+                this.log.warn(`Low memory detected (${totalMem}MB). Monitor for performance issues.`);
+                logToFile(`Low memory detected (${totalMem}MB)`, 'WARNING');
+            }
+        }
+        
+        // Apply device-specific optimizations
+        this.devices.forEach(device => {
+            if (systemInfo.isRaspberryPi && !device.statusCheckInterval) {
+                // Longer intervals for Raspberry Pi to reduce Bluetooth load
+                device.statusCheckInterval = device.statusCheckInterval || 180;
+            }
         });
     }
 

@@ -42,21 +42,55 @@ Homebridge plugin for SwitchBot devices using direct BLE (Bluetooth Low Energy) 
 - Homebridge v1.3.5 or later
 - Bluetooth 4.0+ adapter with BLE support
 
+### Raspberry Pi Specific Requirements
+- Raspberry Pi 3+ (built-in Bluetooth) or external Bluetooth 4.0+ adapter
+- Sufficient power supply (official Raspberry Pi adapter recommended)
+- MicroSD card with at least 8GB free space
+
+**For Raspberry Pi users**: See our [comprehensive Raspberry Pi setup guide](docs/raspberry-pi-setup.md) for optimized installation and configuration.
+
 ## Installation
 
-### Option 1: Install through Homebridge UI(Still under applying)
+### System Compatibility Check (Recommended)
+
+Before installation, run our compatibility checker to ensure your system meets all requirements:
+
+```bash
+# Download and run the system compatibility checker
+curl -fsSL https://raw.githubusercontent.com/bruce30709/homebridge-switchbot-ble/main/scripts/system-check.js | node
+```
+
+### Option 1: Raspberry Pi Automated Setup (Recommended for Raspberry Pi)
+
+For Raspberry Pi users, use our automated setup script that handles all dependencies and optimizations:
+
+```bash
+# Download and run the automated Raspberry Pi setup
+curl -fsSL https://raw.githubusercontent.com/bruce30709/homebridge-switchbot-ble/main/scripts/raspberry-pi-setup.sh | sudo bash
+```
+
+This script will:
+- Install Node.js and dependencies
+- Configure Bluetooth permissions
+- Optimize system settings for Raspberry Pi
+- Install Homebridge and the plugin
+- Set up systemd service
+- Apply performance optimizations
+
+### Option 2: Install through Homebridge UI (Still under applying)
 
 1. Open your Homebridge UI
 2. Go to the "Plugins" tab
 3. Search for "homebridge-switchbot-ble"
 4. Click "Install"
 
-### Option 2: Install via npm(Test it work)
+### Option 3: Install via npm (Manual)
 
 ```bash
 npm install -g homebridge-switchbot-ble
 ```
-### Option 3: Install manuallly(Test it work)
+
+### Option 4: Install manually (Test it work)
 
 1. Copy the downloaded homebridge-switchbot-ble folder to the same path as the homebridge-XXX.
 
@@ -215,6 +249,24 @@ See the [Child Bridge Guide](FIX-CHILD-BRIDGE-GUIDE.md) for detailed setup instr
 
 ## Troubleshooting
 
+### Quick Diagnostics
+
+Before reporting issues, run our diagnostic tools:
+
+```bash
+# Check system compatibility
+npm run system-check
+
+# Test system performance and get optimization recommendations
+npm run performance-test
+
+# Diagnose Bluetooth issues
+npm run bluetooth-troubleshoot
+
+# Complete health check
+npm run health-check
+```
+
 ### Devices Not Responding
 
 1. Make sure your device is within Bluetooth range (usually 10-15 meters)
@@ -241,6 +293,8 @@ Enable debug mode by setting `"debug": true` in your device configuration. This 
 | JSON parse errors          | Try restarting the plugin or check device compatibility      |
 | "Cannot turn ON/OFF" error | Check if your device is in Press mode instead of Switch mode |
 | Mode mismatch              | Use "press" command for devices in Press mode, not ON/OFF    |
+| Low performance on Pi      | Run `npm run performance-test` for optimization suggestions   |
+| Bluetooth permissions      | Run `npm run bluetooth-troubleshoot` for detailed diagnosis   |
 
 ### Mode Mismatch Errors
 
